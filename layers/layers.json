@@ -1,0 +1,16 @@
+{
+	"crime-2018":{"name": "Crime: All crimes 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018.json"},
+	"crime-2018-antisocial":{"name": "Crime: Anti-social behaviour 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-antisocial.json"},
+	"crime-2018-bicycle":{"name": "Crime: Bicycle 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-bicycle.json"},
+	"crime-2018-burglary":{"name": "Crime: Burglary 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-burglary.json"},
+	"crime-2018-drugs":{"name": "Crime: Drugs 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-drugs.json"},
+	"crime-2018-publicorder":{"name": "Crime: Public order 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-publicorder.json"},
+	"crime-2018-robbery":{"name": "Crime: Robbery 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-robbery.json"},
+	"crime-2018-shoplifting":{"name": "Crime: Shoplifting 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-shoplifting.json"},
+	"crime-2018-theftfromperson":{"name": "Crime: Theft from the person 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-theftfromperson.json"},
+	"crime-2018-theft":{"name": "Crime: Other theft 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-theft.json"},
+	"crime-2018-vehicle":{"name": "Crime: Vehicle 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-vehicle.json"},
+	"crime-2018-violence":{"name": "Crime: Violence and sexual offences 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-violence.json"},
+	"crime-2018-weapons":{"name": "Crime: Possession of weapons 2018","credit":{"src": "Police.uk"},"metadata":"layers/meta/crime-2018-weapons.json"},
+	"ons-national-parks":{"name": "National Parks","credit": {"src": "ONS"},"metadata":"layers/meta/ons-national-parks.json"}
+}

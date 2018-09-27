@@ -1,0 +1,18 @@
+{
+	"geojson": "layers/ons-national-parks.geojson",
+	"name": "National Parks",
+	"desc": "National Parks in Great Britain, as at 1 August 2016. These were produced as a result of the boundary changes of the Lake District and Yorkshire Dales National Parks.",
+	"url": "https://data.gov.uk/dataset/31c4e3b8-11bc-4eb9-be62-c281a3dc5c7f/national-parks-august-2016-generalised-clipped-boundaries-in-great-britain",
+	"owner": "ons",
+	"credit": {
+		"text": "&copy; Office for National Statistics. Contains both Ordnance Survey and ONS Intellectual Property Rights.",
+		"src": "ONS"
+	},
+	"licence": {
+		"text": "OGL v3",
+		"url": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/"
+	},
+	"size": 604457,
+	"odbl": false,
+	"colour": "#a4cf60"
+}

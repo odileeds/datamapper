@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta charset="utf-8" />
+	<title>ODI Leeds Data Mapper</title>
+	<script type="text/javascript" src="resources/stuquery.js"></script>
+	<script type="text/javascript" src="resources/leaflet/leaflet.js"></script>
+	<script type="text/javascript" src="resources/datamapper.js"></script>
+	<link rel="StyleSheet" href="resources/leaflet/leaflet.css" type="text/css" />
+	<link rel="StyleSheet" href="resources/style.css" type="text/css" />
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:site" content="@ODILeeds">
+	<meta name="twitter:url" property="og:url" content="https://odileeds.org/projects/mapper/">
+	<meta name="twitter:title" property="og:title" content="ODI Leeds Data Mapper">
+	<meta name="twitter:description" property="og:description" content="Mapping open datasets.">
+	<meta name="twitter:image" property="og:image" content="https://odileeds.org/projects/mapper/mapper.png">
+	<script>
+	var commons;
+	S(document).ready(function(){
+		baseMaps = {
+			'National Library of Scotland': L.tileLayer('https://geo.nls.uk/maps/os/1inch_2nd_ed/{z}/{x}/{y}.png', {
+				attribution: 'Tiles: &copy; <a href="http://geo.nls.uk/maps/">National Library of Scotland Historic Maps</a>',
+				bounds: [[49.6, -12], [61.7, 3]],
+				minZoom: 1,
+				maxZoom: 18,
+				subdomains: '0123'
+			}),
+			'Esri WorldImagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+				attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+			}),
+		}
+		commons = new DataMapper({'src':['layers/layers.json','https://raw.githubusercontent.com/odileeds/west-yorkshire-mapping/master/data/mapper.json']});
+	});
+	</script>
+</head>
+<body>
+
+	<input type="checkbox" id="hamburger" class="offside" checked="checked">
+	<label for="hamburger" class="offside b2-bg"><span class="nv">Toggle menu (if not visible)</span><div class="chevron"></div></label>
+	
+	<header class="b2-bg">
+		<h1>ODI Leeds Data Mapper v0.3</h1>
+	</header>
+
+	<div id="left">
+		<menu class="panel" id="layers">
+			<div class="panel-inner">
+				<button id="add-layer" class="add">&plus; Add</button>
+				<h2>Layers</h2>
+				<ul id="layers-list">
+				</ul>
+			</div>
+		</menu>
+				<div id="nolayers" class="padded">
+					<div class="padded bubble-up">Hello! You have an empty map right now but you can add various types of layer on top of it. Some layers we've collated and some are sourced from <a href="https://openstreetmap.org/">Open Street Map</a>, <a href="https://datamillnorth.org/">Data Mill North</a>, <a href="https://dataworks.calderdale.gov.uk/">Calderdale Data Works</a>, or <a href="https://data.gov.uk/">data.gov.uk</a>. Click the "Add" button to find a layer of interest.</div>
+				</div>
+	</div>
+
+	<div id="splash" class="popup" style="background-color: rgba(0,0,0,0.8);">
+		<div class="centered padded">
+			<div style="display:inline-block;background-color: white;padding:1em 2em;max-width:600px;text-align:center;position:relative;">
+				<h2>ODI Leeds Data Mapper</h2>
+				<p>Developed from a co-creation project with <a href="https://odileeds.org/projects/leeds-urban-commons/">ODI Leeds</a>, the <a href="https://lssi.leeds.ac.uk">University of Leeds</a>, <a href="http://baumanlyons.co.uk/news/updateleeds-love-it-share-it">Leeds Love It Share It</a> and <a href="https://leedscitylab.wordpress.com/">Leeds City Lab</a>. This is a prototype tool developed from <a href="/projects/commonground/">Common Ground</a>.</p>
+				<br/><button>Enter</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="map">
+		<div id='tooltip'></div>
+	</div>
+
+	<div id="add" class="popup">
+		<button class="close" title="Close"></button>
+		<div class="padded inner">
+			<h2>Add a layer</h2>
+			<form action="/search/" method="GET" id="layersearch"><input id="q" name="q" value="" type="text" placeholder="To search the layers start typing here"><input value="" class="b6-bg" type="submit"></form>
+		</div>
+	</div>
+
+	<div id="message" class="message"></div>
+
+</body>
+</html>

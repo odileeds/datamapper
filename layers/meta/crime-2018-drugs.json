@@ -1,0 +1,17 @@
+{
+	"geojson": "layers/crime-2018.geojson",
+	"name": "Crime: drugs 2018",
+	"desc": "By Westminster constituency from January - July 2018",
+	"url": "https://data.police.uk/",
+	"owner": "police.uk",
+	"format": { "type": "chloropleth", "key":"Drugs" },
+	"credit":{
+		"text": "police.uk",
+		"src": ""
+	},
+	"licence": {
+		"text": "OGL v3",
+		"url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/"
+	},
+	"colour": "#000000"
+}
