@@ -214,7 +214,7 @@
 				S('#'+str).addClass('open').find('button').focus();
 				return this;
 			}
-			var a = (str) ? str.split('/') : [15,53.79659,-1.53385];
+			var a = (str) ? str.split('/') : [13,53.79659,-1.53385];
 			if(a[3]){
 				var l = a[3].split(';');
 				for(var i = 0; i < l.length; i++) _obj.loadLayer(l[i]);
