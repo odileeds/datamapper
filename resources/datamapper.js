@@ -1,79 +1,6 @@
 (function(S) {
-	
-	// Put us on the https version
-	if(location.protocol != 'https:' && location.protocol != "file:") location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
 
-
-	var lat,lon,d;
-	var mapid,map,mapel;
 	var layers = {};
-
-	function setupMap(){
-
-		baseMaps['Default']= L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
-			attribution: 'Tiles: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
-			subdomains: 'abcd',
-			maxZoom: 19
-		})
-
-		mapel = S('#map');
-		lat = 53.79659;
-		lon = -1.53385;
-		d = 0.03;
-		mapid = mapel.attr('id');
-		map = L.map(mapid,{'layers':[baseMaps['Default']],'scrollWheelZoom':true,'zoomControl':false,'editable': true}).fitBounds([
-			[lat-d, lon-d],
-			[lat+d, lon+d]
-		]);
-
-		new L.Control.Zoom({ position: 'topright' }).addTo(map);
-		if(Object.keys(baseMaps).length > 1){ var control = L.control.layers(baseMaps); control.addTo(map); }
-		else baseMaps['Default'].addTo(map);
-
-		map.on('baselayerchange',function(layer){
-			if(layer.name == "National Library of Scotland"){
-				S('#map').addClass('nls');
-			}else{
-				S('#map').removeClass('nls');
-			}
-		});
-
-		// Add events for added layers
-		var deleteShape = function (e) {
-			if ((e.originalEvent.ctrlKey || e.originalEvent.metaKey) && this.editEnabled()) this.editor.deleteShapeAt(e.latlng);
-		};
-		map.on('layeradd', function (e) {
-			if (e.layer instanceof L.Path) e.layer.on('click', L.DomEvent.stop).on('click', deleteShape, e.layer);
-		});
-
-
-/*
-		L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
-			attribution: 'Tiles: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
-			subdomains: 'abcd',
-			maxZoom: 19
-		}).addTo(map);
-*/
-		
-
-	};
-
-	var odicolours = {
-		'c1':'#2254F4',
-		'c2':'#178CFF',
-		'c3':'#00B6FF',
-		'c4':'#08DEF9',
-		'c5':'#1DD3A7',
-		'c6':'#0DBC37',
-		'c7':'#67E767',
-		'c8':'#722EA5',
-		'c9':'#E6007C',
-		'c10':'#EF3AAB',
-		'c11':'#D73058',
-		'c12':'#D60303',
-		'c13':'#FF6700',
-		'c14':'#F9BC26'
-	}
 
 	function setHexTextColor(hex){
 		var L1 = getL(hex);
@@ -114,37 +41,32 @@
 	function DataMapper(attr){
 		if(!attr) attr = {};
 
-		this.src = ['https://www.imactivate.com/urbancommons/getLayers.php']
+		this.src = ['https://www.imactivate.com/urbancommons/getLayers.php'];
+		if(attr.id) this.id = attr.id;
 		if(attr.src) this.src = attr.src;
+		if(attr.baseMaps) this.baseMaps = attr.baseMaps;
 
 		var db = new Array();
 		var ids = {};
-		var active = new Array();
-		var visible = {};
-		var editing = "";
+		this.visible = {};
 		this.editing = "";
 		this.layersloaded = false;
 		this.layerstoload = new Array();
 		this.srcloaded = 0;
-		//if(layers) this.layersloaded = true;
-
-
+		this.target = S(attr.id ? '#'+attr.id : 'body');
+		this.lat;
+		this.lon;
+		this.d;
+		this.mapid;
+		this.map;
+		this.mapel;
+		this.layerlookup = {};
+		this.events = {};
+		this.logging = true;
+		this.layers = {};
+		
 		// Do we update the address bar?
 		this.pushstate = !!(window.history && history.pushState);
-
-		var _obj = this;
-
-		setupMap();
-
-		if(typeof PlaceSearch==="function"){
-			this.places = new PlaceSearch({
-				'selector': '.leaflet-top.leaflet-right',
-				'map': map,
-				'callback': function(rtn){
-					_obj.setView([rtn.lat,rtn.lon],rtn.z);
-				}
-			});
-		}
 
 		function makePopup(popup){
 			if(popup && popup.indexOf("function")==0){
@@ -157,24 +79,97 @@
 		}
 
 		this.init = function(){
+
+			// Add the datamapper class to the main element
+			// This will target all the CSS styles
+			this.target.addClass('datamapper')
+
+			if(this.target.find('input.offside').length == 0) this.target.prepend('<input type="checkbox" id="hamburger" class="offside" checked="checked" data="test" /><label for="hamburger" class="offside b2-bg"><span class="nv">Toggle menu (if not visible)</span><div class="chevron"></div></label>');
+			if(this.target.find('.left').length == 0) this.target.append('<div class="left"></div>');
+			if(this.target.find('.left .layers').length == 0) this.target.find('.left').prepend('<menu class="panel layers"><div class="panel-inner"><button class="add-layer add">&plus; Add</button><h2>Layers</h2><ul id="layers-list"></ul></div></menu>');
+			if(this.target.find('.left .map').length == 0) this.target.append('<div class="map"><div id="tooltip"></div></div>');
+			if(this.target.find('.left .layer-search').length == 0) this.target.append('<div class="layer-search popup"><button class="close" title="Close"></button><div class="padded inner"><h2>Add a layer</h2><form action="/search/" method="GET"><input class="q" name="q" value="" type="text" placeholder="To search the layers start typing here" autocomplete="off"><input value="" class="b6-bg" type="submit"></form></div></div>');
+						
+			// Add events
+			this.target.find('.layer-search form').on('submit',function(e){
+				e.preventDefault();
+			});
+
+			// Add splash screen interaction if it exists
+			if(this.target.find('.splash').length > 0){
+				setTimeout(function(){ _obj.target.find('.splash').trigger('click'); },5000);
+				this.target.find('h1').on('click',function(){ _obj.target.find('.splash').addClass('open').find('button').focus(); });
+				this.target.find('.splash button').on('click',function(e){ _obj.target.find('.splash').removeClass('open'); });
+				this.target.find('.privacy button').on('click',function(e){ _obj.target.find('.privacy').removeClass('open'); window.history.back(); });
+			}
+
+			this.target.find('.add-layer').on('click',{me:this},function(e){
+				e.data.me.target.find('.layer-search').addClass('open').find('.q').focus();
+				processResult();
+			});
+
+			this.target.find('.layer-search .close').html(getIcon('remove')).on('click',{me:this},function(e){
+				e.data.me.target.find('.layer-search').removeClass('open');
+				e.data.me.target.find('.layers').focus();
+			});
+
+			this.target.find('.q').on('focus',{me:this},function(e){
+				e.data.me.log('Focus',layers,e.data.me.target.find('.layer-search .searchresults'))
+				if(e.data.me.target.find('.layer-search .searchresults').length <= 0){
+					e.data.me.log('Here',e.data.me.target.find('.layer-search form'))
+					e.data.me.target.find('.layer-search form').after('<div class="searchresults"></div>');
+				}
+			}).on('keyup',{me:this},function(e){
+				e.preventDefault();
+
+				if(e.originalEvent.keyCode==40 || e.originalEvent.keyCode==38){
+					// Down=40
+					// Up=38
+					var li = e.data.me.target.find('.layer-search searchresults li');
+					var s = -1;
+					for(var i = 0; i < li.e.length; i++){
+						if(S(li.e[i]).hasClass('selected')) s = i;
+					}
+					if(e.originalEvent.keyCode==40) s++;
+					else s--;
+					if(s < 0) s = li.e.length-1;
+					if(s >= li.e.length) s = 0;
+					e.data.me.target.find('.layer-search .searchresults .selected').removeClass('selected');
+					S(li.e[s]).addClass('selected');
+				}else if(e.originalEvent.keyCode==13){
+					selectName(e.data.me.target.find('.layer-search .searchresults .selected'))
+				}else{
+					// Need to load the data file for the first letter
+					var name = this.e[0].value.toLowerCase();
+					//var fl = name[0];
+					processResult(name);
+					//if(name == "") clearResults();
+				}
+			});
+
+			// Set up the map
+			this.setupMap();
+
+			// Get the state from the hash
+			if(S('.datamapper').length == 1) window[(this.pushstate) ? 'onpopstate' : 'onhashchange'] = function(e){ if(e.state){ _obj.visible = e.state.visible; } _obj.moveMap(e); };
 			this.getAnchor();
 			this.lat = (this.anchor && this.anchor.latitude) ? this.anchor.latitude : 53.79661;
 			this.lon = (this.anchor && this.anchor.longitude) ? this.anchor.longitude : -1.53362;
 			this.zoom = (this.anchor && this.anchor.zoom) ? this.anchor.zoom : 13;
 			this.temporaryhide = [];
 
-			window[(this.pushstate) ? 'onpopstate' : 'onhashchange'] = function(e){ if(e.state){ visible = e.state.visible; active = e.state.active; } _obj.moveMap(e); };
-			map.setView([this.lat, this.lon], this.zoom);
+			// Set the view
+			this.map.setView([this.lat, this.lon], this.zoom);
 
-			map.on('moveend',function(){
-				if(_obj.trackmove) updateMap();
+			// Add callback to the move end event
+			this.map.on('moveend',function(){
+				if(_obj.trackmove) _obj.updateMap();
 				_obj.trackmove = true;
 			});
 			
 			if(!this.layersloaded){
 				for(var s = 0; s < this.src.length; s++){
-					url = this.src[s];
-					S(document).ajax(url,{
+					S(document).ajax(this.src[s],{
 						'dataType':'json',
 						'this':this,
 						'cache': false,
@@ -186,7 +181,9 @@
 								}
 								for(var l in d){
 									layers[l] = d[l];
+									this.layers[l] = {'active':false};
 								}
+								this.log('ajax',layers)
 
 								// Increment source file loading counter
 								this.srcloaded++;
@@ -194,22 +191,74 @@
 								// Load any layers that now can be loaded
 								this.finishLoadingLayers();
 							}
+						},
+						'error':function(e){
+							this.log("Couldn't load",e);
 						}
 					});
 				}
 			}
+			
+			this.trigger('init');
+
+			return this;
 		}
 
+		// Function to create the Leaflet map
+		this.setupMap = function(){
+
+			this.baseMaps['Default']= L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
+				attribution: 'Tiles: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+				subdomains: 'abcd',
+				maxZoom: 19
+			})
+
+			// Add map element if it doesn't exist
+			this.mapid = this.id+'-map';
+			this.mapel = this.target.find('.map');
+			this.mapel.attr('id',this.mapid);
+			this.lat = 53.79659;
+			this.lon = -1.53385;
+			this.d = 0.03;
+			this.map = L.map(this.mapid,{'layers':[this.baseMaps['Default']],'scrollWheelZoom':true,'zoomControl':false,'editable': true}).fitBounds([
+				[this.lat-this.d, this.lon-this.d],
+				[this.lat+this.d, this.lon+this.d]
+			]);
+
+			new L.Control.Zoom({ position: 'topright' }).addTo(this.map);
+			if(Object.keys(this.baseMaps).length > 1){ var control = L.control.layers(this.baseMaps); control.addTo(this.map); }
+			else this.baseMaps['Default'].addTo(this.map);
+
+			var _obj = this;
+			this.map.on('baselayerchange',function(layer){
+				if(layer.name == "National Library of Scotland") _obj.mapel.addClass('nls');
+				else _obj.mapel.removeClass('nls');
+			});
+
+			// Add events for added layers
+			var deleteShape = function (e) {
+				if ((e.originalEvent.ctrlKey || e.originalEvent.metaKey) && this.editEnabled()) this.editor.deleteShapeAt(e.latlng);
+			};
+			this.map.on('layeradd', function (e) {
+				if (e.layer instanceof L.Path) e.layer.on('click', L.DomEvent.stop).on('click', deleteShape, e.layer);
+			});
+
+			return this;
+		};
+
+		// Set the map view
 		this.setView = function(coord,z){
 			this.lat = coord[0];
 			this.lon = coord[1];
 			if(z) this.zoom = z;
-			map.setView([this.lat, this.lon], this.zoom);
+			this.map.setView([this.lat, this.lon], this.zoom);
 			return this;
 		}
 
+		// Get the anchor attributes
 		this.getAnchor = function(str){
 			if(!str) str = location.href.split("#")[1];
+			// CHECK
 			if(str && str.indexOf("\/") < 0 && S('#'+str).length == 1){
 				S('#'+str).addClass('open').find('button').focus();
 				return this;
@@ -228,38 +277,49 @@
 			_obj.getAnchor(a);
 			if(!a){
 				_obj.trackmove = false;
-				map.setView({lon:_obj.anchor.longitude,lat:_obj.anchor.latitude},_obj.anchor.zoom);
+				this.map.setView({lon:_obj.anchor.longitude,lat:_obj.anchor.latitude},_obj.anchor.zoom);
 			}else{
-				if(_obj.pushstate) history.pushState({active:active,visible:visible},"Map","#"+_obj.anchor.str);
+				if(S('.datamapper').length == 1 && _obj.pushstate) history.pushState({visible:_obj.visible},"Map","#"+_obj.anchor.str);
 			}
 			this.updateLayers();
 			return this;
 		}
-
+		this.log = function(){
+			if(this.logging){
+				var args = Array.prototype.slice.call(arguments, 0);
+				if(console && typeof console.log==="function") console.log('DataMapper',args);
+			}
+			return this;
+		}
 		this.updateLayers = function(){
-			var ls = S('#layers li');
+			this.log('updateLayers')
+			var ls = this.target.find('.layers li');
+			this.log('updateLayers',ls)
 			var el;
 			var credits = {};
 			var attrib = "";
 			for(var i = 0; i < ls.length; i++){
 				el = S(ls[i]);
-				id = el.attr('id');
+				id = el.attr('data-id');
+				this.log('el',el,ls,id,layers[id])
 				if(layers[id]){
-					layers[id].active = false;
-					for(var a in visible){
-						if(a==id) layers[id].active = true;
+					if(!this.layers[id]) this.layers[id] = {};
+					this.layers[id].active = false;
+					for(var a in this.visible){
+						if(a==id) this.layers[id].active = true;
 					}
-					if(el.hasClass('deactivated') == layers[id].active){
-						layers[id].active = !layers[id].active;
+					if(el.hasClass('deactivated') == this.layers[id].active){
+						this.layers[id].active = !this.layers[id].active;
 						this.toggleLayer(id);
 					}
-					if(layers[id].active) credits[getCredit(layers[id],"text")] = true;
+					this.log('layers',layers[id],this.layers[id]);
+					
+					if(this.layers[id].active) credits[getCredit(layers[id],"text")] = true;
 
 					// Update layer properties
-					S('#'+id+' .heading').html(layers[id] ? layers[id].name||id : id);
-
-					S('#'+id+' .description .padding').html((layers[id].desc || '')+(layers[id].owner == "osm" ? '<br /><br />This data set comes from Open Street Map - a map built by citizens. If something is not quite right you can help <a href="https://openstreetmap.org/edit?pk_campaign=odileeds-edit">improve the map</a>.':'')+'<p class="credit"><a href="'+(layers[id].url || "")+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p>'+(layers[id].date ? '<p>Last updated: '+layers[id].date+'</p>':''));
-					S('#'+id+' .description .download').html((typeof layers[id].geojson === "string" ? '<a href="'+layers[id].geojson+'" class="button">Download (GeoJSON'+(layers[id].size ? ' '+niceSize(layers[id].size) : '')+')</a>' : ''));
+					el.find('.heading').html(layers[id] ? layers[id].name||id : id);
+					el.find('.description .padding').html((layers[id].desc || '')+(layers[id].owner == "osm" ? '<br /><br />This data set comes from Open Street Map - a map built by citizens. If something is not quite right you can help <a href="https://openstreetmap.org/edit?pk_campaign=odileeds-edit">improve the map</a>.':'')+'<p class="credit"><a href="'+(layers[id].url || "")+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p>'+(layers[id].date ? '<p>Last updated: '+layers[id].date+'</p>':''));
+					el.find('.description .download').html((typeof layers[id].geojson === "string" ? '<a href="'+layers[id].geojson+'" class="button">Download (GeoJSON'+(layers[id].size ? ' '+niceSize(layers[id].size) : '')+')</a>' : ''));
 					// Update color of layer
 					this.setLayerColours(id);
 				}
@@ -268,142 +328,39 @@
 				if(attrib) attrib += "; ";
 				attrib += c;
 			}
+			this.log('ATTRIB',attrib,credits)
 			if(attrib) attrib = "<strong>Data:</strong> "+attrib;
-			map.attributionControl.setPrefix(attrib ? '<span class="AttributionClass">'+attrib+'</span>':'');
+			this.map.attributionControl.setPrefix(attrib ? '<span class="AttributionClass">'+attrib+'</span>':'');
 
 
 			return this;
 		}
 
-		function updateMap(){
-			var centre = map.getCenter();
+		this.updateMap = function(){
+			var centre = this.map.getCenter();
 			var s = "";
 			var i = 0;
-			for(var a in visible){
+			for(var a in this.visible){
 				if(s) s += ';';
 				s += a;
 				i++;
 			}
-			_obj.moveMap({},map.getZoom()+'/'+centre.lat.toFixed(5)+'/'+centre.lng.toFixed(5)+'/'+s);
-			if(i > 0) S('#nolayers').remove();
-			/*
-			if(typeof Sortable!=="undefined"){
-				console.log('sortable')
-				var list = document.getElementById("#layers-list");
-				if(_obj.sortlist) _obj.sortlist.destroy();
-				_obj.sortlist = Sortable.create(list);
-			}*/
+			_obj.moveMap({},this.map.getZoom()+'/'+centre.lat.toFixed(5)+'/'+centre.lng.toFixed(5)+'/'+s);
+			if(i > 0) this.target.find('.nolayers').remove();
 		}
 
+		// Initial set up
+		var _obj = this;
 
-
-		S('#signin').on('click',{me:this},function(e){
-			e.preventDefault();
-			e.stopPropagation();
-			var a = e.data.me.signin();
-			return false;
-		});
-
-		S('#signout').on('click',{me:this},function(e){
-			e.preventDefault();
-			e.stopPropagation();
-			var a = e.data.me.signout();
-			return false;
-		});
-
-		S('#layersearch').on('submit',function(e){
-			e.preventDefault();
-		});
-		setTimeout(function(){ S('#splash').trigger('click'); },5000);
-		S('h1').on('click',function(){ S('#splash').addClass('open').find('button').focus(); });
-		S('#splash button').on('click',function(e){ S('#splash').removeClass('open'); });
-		S('#privacy button').on('click',function(e){ S('#privacy').removeClass('open'); window.history.back(); });
-
-		S('#add-layer').on('click',function(e){
-			S('#add').addClass('open').find('.close').focus();
-			processResult();
-		});
-
-		S('#add .close').html(getIcon('remove')).on('click',function(e){
-			S('#add').removeClass('open');
-			S('#layers').focus();
-		});
-		S('#create-layer').on('click',function(e){
-			S('#add').removeClass('open');
-			S('#newLayer').addClass('open').find('.close').focus();
-		});
-		S('#newLayer .close').html(getIcon('remove')).on('click',function(e){
-			S('#newLayer').removeClass('open');
-			S('#layers .add').focus();
-		});
-	
-		// Create a new layer
-		S('#newLayer input[type="submit"]').on('click',function(e){
-		
-			e.preventDefault();
-
-			var k = 0;
-			var key = "temporary-layer";
-			while(layers[key+(k > 0 ? '-'+k:'')]) k++;
-			key = key+(k > 0 ? '-'+k:'');
-
-			var obj = {'name':S('#name')[0].value,'desc':S('#desc')[0].value,'url':S('#url')[0].value,'owner':'stuart','credit':'&copy; Stuart Lowe','licence':'ODbL','odbl':true,'colour':S('#color')[0].value,'edit':true};
-
-			// Do things here to create a new layer
-			layers[key] = obj;
-			_obj.loadLayer(key);
-			_obj.toggleLayer(key);
-			_obj.updateLayers();
-			_obj.startEditLayer(key);
-			
-			
-			S('#newLayer').removeClass('open');
-		});
-	
-		S('#q').on('focus',function(e){
-
-			if(S('#searchresults').length <= 0){
-				S('#layersearch').after('<div id="searchresults"></div>');
-			}
-
-		}).on('keyup',function(e){
-
-			e.preventDefault();
-
-			if(e.originalEvent.keyCode==40 || e.originalEvent.keyCode==38){
-				// Down=40
-				// Up=38
-				var li = S('#searchresults li');
-				var s = -1;
-				for(var i = 0; i < li.e.length; i++){
-					if(S(li.e[i]).hasClass('selected')) s = i;
-				}
-				if(e.originalEvent.keyCode==40) s++;
-				else s--;
-				if(s < 0) s = li.e.length-1;
-				if(s >= li.e.length) s = 0;
-				S('#searchresults .selected').removeClass('selected');
-				S(li.e[s]).addClass('selected');
-			}else if(e.originalEvent.keyCode==13){
-				selectName(S('#searchresults .selected'))
-			}else{
-				// Need to load the data file for the first letter
-				var name = this.e[0].value.toLowerCase();
-				//var fl = name[0];
-				processResult(name);
-				//if(name == "") clearResults();
-			}
-		});
-		
 		function clearResults(){
 			// Zap search results
-			S('#searchresults').html('');
+			_obj.target.find('.layer-search .searchresults').html('');
 			return this;			
 		}
 
 		function loadCode(url,callback){
 			var el;
-			console.log('loadCode',url,url.indexOf(".js"));
+			_obj.log('loadCode',url,url.indexOf(".js"));
 			if(url.indexOf(".js")>= 0){
 				el = document.createElement("script");
 				el.setAttribute('type',"text/javascript");
@@ -421,188 +378,77 @@
 		}
 
 
-		// Select one of the people in the drop down list
+		// Select one of the options in the drop down list
 		function selectName(selected){
 			// Get the ID from the DOM element's data-id attribute
 			// Use that to find the index that corresponds to in the "db" hash
 			var id = selected.attr('data-id');
 			clearResults();
-			S('#add .close').trigger('click');
-		
-			if(S('#'+id).length <= 0){
-				S('#q')[0].value = '';
+_obj.log(_obj.layerlookup,id,_obj.layerlookup[id])
+			if(!_obj.layerlookup[id] || _obj.layerlookup[id].length <= 0){
+				_obj.target.find('.q')[0].value = '';
 				clearResults();
 				_obj.loadLayer(id);
 			}
+			_obj.target.find('.layer-search .close').trigger('click');
 		}
-		
-		this.getUser = function(){
-			S(document).ajax("https://www.imactivate.com/urbancommons/signin/checkuser.php",{
-				'dataType':'jsonp',
-				'this':_obj,
-				'success':function(data,attr){
-					this.setUser(data.user);
-					this.getUserLayers();
-					if(typeof d=="object"){
-						//for(l in d) layers.push(d[l])
-						// Load any layers that now can be loaded
-						//this.finishLoadingLayers();
-					}
-				}
-			});
+
+		// Attach a handler to an event for the Data Mapper object
+		//   .on(eventType[,eventData],handler(eventObject));
+		//   .on("resize",function(e){ console.log(e); });
+		//   .on("resize",{me:this},function(e){ console.log(e.data.me); });
+		this.on = function(ev,e,fn){
+			if(typeof ev!="string") return this;
+			if(typeof fn=="undefined"){ fn = e; e = {}; }
+			else{ e = {data:e} }
+			if(typeof e!="object" || typeof fn!="function") return this;
+			if(this.events[ev]) this.events[ev].push({e:e,fn:fn});
+			else this.events[ev] = [{e:e,fn:fn}];
 			return this;
 		}
 
-		this.getUser();
-		
-
-		this.setUser = function(user){
-			this.user = user;
-			if(user){
-				S('.needs-user').css({'display':'inline-block'});
-				S('#signin').css({'display':'none'});
-				S('#signout').css({'display':'inline-block'});
-				S('#createaccount').css({'display':'none'});
-				S('#user').css({'display':'inline-block'}).html(user);
-			}else{
-				S('.needs-user').css({'display':'none'});
-				S('#signin').css({'display':'inline-block'});
-				S('#signout').css({'display':'none'});
-				S('#createaccount').css({'display':'inline-block'});
-				S('#user').css({'display':'none'}).html('');
-			}
-			return this;
-		}
-
-		this.removeUserLayers = function(){
-			for(var l in layers){
-				if(layers[l].organisation){
-					this.removeLayer(l);
-					delete layers[l];
+		// Trigger a defined event with arguments. This is for internal-use to be 
+		// sure to include the correct arguments for a particular event
+		this.trigger = function(ev,args){
+			if(typeof ev != "string") return;
+			if(typeof args != "object") args = {};
+			var o = [];
+			if(typeof this.events[ev]=="object"){
+				for(var i = 0 ; i < this.events[ev].length ; i++){
+					var e = deepExtend({},this.events[ev][i].e,args);
+					if(typeof this.events[ev][i].fn == "function") o.push(this.events[ev][i].fn.call(this,e))
 				}
 			}
-			return this;
-		}
-		this.getUserLayers = function(){
-		
-			if(!this.user){
-				console.log('Where has the user gone?');
-				return this;
-			}
-
-			// Now we need to load the layers
-			url = "https://www.imactivate.com/urbancommons/getUserLayers.php";
-			console.log('Getting '+url);
-			S(document).ajax(url,{
-				'dataType':'jsonp',
-				'this':this,
-				'success':function(d){
-					console.log('returned layers',d,layers);
-					if(typeof d==="object"){
-						console.log('Adding layers',d);
-						for(l in d){
-							if(!layers[l]){
-								// Kludge to fix GeoJSON returned
-								if(d[l].geojson.indexOf("\"type\":\"FeatureCollection\"") > 0){
-									d[l].geojson = JSON.parse(d[l].geojson.replace(/\?$/,"").replace(/\\"/,'"'));
-								}
-								layers[l] = d[l];
-								// User layers are editable
-								layers[l].edit = true;
-							}
-						}
-						// Load any layers that now can be loaded
-						this.finishLoadingLayers();
-					}
-				}
-			});
-		}
-		
-		this.signin = function(){
-			var _obj = this;
-
-			if(S('#authform').length==0) S('body').append('<div id="authform" class="popup open"><button class="close" title="Close"></button><div class="centered"><iframe height="400" width="400" src="https://www.imactivate.com/urbancommons/signin/form.html"></iframe></div></div>');
-
-			// Add close contents and event
-			S('#authform .close').html(getIcon('remove')).on('click',function(e){
-				S('#authform').remove();
-			});
-
-			// Listen for communication from imactivate
-			function receiveMessage(event) {
-
-				d = JSON.parse(event.data);
-				console.log("receiveMessage:",d);
-
-				if(d.msg == "success"){
-
-					S('#authform').remove();
-					_obj.setUser(d.user);
-					_obj.getUserLayers();
-
-				}else{
-					// Error state
-					console.log('something went wrong',d)
-				}
-			}
-
-			window.addEventListener("message", receiveMessage, false);
-
-			return this;
+			if(o.length > 0) return o;
 		}
 
-		this.signout = function(){
-			console.log('signout')
-			// Do a call to imactivate here
-			S(document).ajax("https://www.imactivate.com/urbancommons/signin/logout.php",{
-				'dataType':'jsonp',
-				'this':_obj,
-				'success':function(data,attr){
-					console.log('Yay',data,this,'hi',data,attr);
-					this.setUser('');
-					this.removeUserLayers();
-
-					for(var l in layers){
-						// BLAH
-					}
-/*
-					if(typeof d=="object"){
-						layers = d;
-						// Load any layers that now can be loaded
-						this.finishLoadingLayers();
-					}*/
-				}
-			});
-
-			//this.setUser();
-			return this;
-		}
-	
 		this.removeLayerData = function(id){
 			if(layers[id]){
 				// Set this layer to inactive
-				layers[id].active = false;
-				delete visible[id];
-				if(layers[id].leaflet){
+				this.layers[id].active = false;
+				delete this.visible[id];
+				if(this.layers[id].leaflet){
 					// Remove the data
-					layers[id].leaflet.remove();
-					delete layers[id].leaflet;
+					this.layers[id].leaflet.remove();
+					delete this.layers[id].leaflet;
+					delete this.layerlookup[id];
 				}
 			}
 			return this;
 		}
 
 		this.removeLayer = function(id){
-			S('#'+id).remove();
+			this.log('removeLayer',id)
+			this.layerlookup[id].remove();
 			this.removeLayerData(id);
-			updateMap();
+			this.updateMap();
 			return this;
 		}
 
 		this.updateLayerState = function(id){
 			if(layers[id]){
-				if(layers[id].active) S('#'+id).removeClass('deactivated').css({'color':layers[id].textcolor});
-				else S('#'+id).addClass('deactivated').css({'color':''});
+				if(this.layers[id].active) this.layerlookup[id].removeClass('deactivated').css({'color':layers[id].textcolor});
+				else this.layerlookup[id].addClass('deactivated').css({'color':''});
 				this.setLayerColours(id);
 			}
 			return this;
@@ -624,14 +470,14 @@
 		}
 		this.toggleLayer = function(id){
 			if(layers[id]){
-				layers[id].active = !layers[id].active;
-				if(layers[id].active) this.showLayer(id);
+				this.layers[id].active = !this.layers[id].active;
+				if(this.layers[id].active) this.showLayer(id);
 				else this.hideLayer(id);
 			}
 			return this;
 		}
 		this.fitLayer = function(id){
-			if(layers[id]) map.fitBounds(layers[id].leaflet.getBounds());
+			if(layers[id]) this.map.fitBounds(this.layers[id].leaflet.getBounds());
 			return this;
 		}
 
@@ -639,17 +485,17 @@
 			if(layers[id]){
 				if(!layers[id].colour) layers[id].colour = '#dddddd';
 				layers[id].textcolor = setHexTextColor(layers[id].colour);
-				if(S('#'+id).length > 0){
-					c = getComputedStyle(S('#'+id)[0])['color'];
-					S('#'+id+' .toggle').html((layers[id].active ? getIcon("hide",c):getIcon("show",c)));
-					S('#'+id+' .fit').html(getIcon("fit",c));
-					S('#'+id+' .info').html(getIcon("info",c));
-					S('#'+id+' .remove').html(getIcon("remove",c));
-					S('#'+id+' .edit').html(getIcon("edit",c));
-					S('#'+id).css({'background':layers[id].colour,'color':(layers[id].active ? layers[id].textcolor:'')});
-					S('#saver').css({'background':layers[id].colour,'color':layers[id].textcolor,'display':'block'});
-					if(layers[id].leaflet) layers[id].leaflet.setStyle({color: layers[id].colour});
-
+				if(this.layerlookup[id] && this.layerlookup[id].length > 0){
+					// Set layer properties
+					this.layerlookup[id].css({'background':layers[id].colour,'color':(this.layers[id].active ? layers[id].textcolor:'')});
+					// Work out the text/icon colour
+					c = getComputedStyle(this.layerlookup[id][0])['color'];
+					this.layerlookup[id].find('.toggle').html((this.layers[id].active ? getIcon("hide",c):getIcon("show",c)));
+					this.layerlookup[id].find('.fit').html(getIcon("fit",c));
+					this.layerlookup[id].find('.info').html(getIcon("info",c));
+					this.layerlookup[id].find('.remove').html(getIcon("remove",c));
+					this.target.find('.saver').css({'background':layers[id].colour,'color':layers[id].textcolor,'display':'block'});
+					if(this.layers[id].leaflet) this.layers[id].leaflet.setStyle({color: layers[id].colour});
 				}
 			}
 			return this;
@@ -671,7 +517,7 @@
 					if(got==files.length){
 						_obj.clustercodeloaded = true;
 						_obj.addLayer(id);
-						updateMap();
+						_obj.updateMap();
 					}
 				})
 			}
@@ -698,9 +544,9 @@
 					}
 				}
 
-				if(layers[id].leaflet) this.removeLayerData(id);
-				layers[id].active = true;
-				visible[id] = true;
+				if(this.layers[id].leaflet) this.removeLayerData(id);
+				this.layers[id].active = true;
+				this.visible[id] = true;
 				this.setLayerColours(id);
 				function popuptext(feature){
 					// does this feature have a property named popupContent?
@@ -805,13 +651,13 @@
 					if(layers[id].data.crs){
 						if(layers[id].data.crs.properties && layers[id].data.crs.properties.name=="EPSG:27700"){
 							geoattrs.coordsToLatLng = OSGridToLatLon;
-							console.log('Add conversion from OSGrid')
+							this.log('Add conversion from OSGrid')
 						}
 					}
 				}
 				if(needscluster){
 					// Define a cluster layer
-					layers[id].leaflet = L.markerClusterGroup({
+					this.layers[id].leaflet = L.markerClusterGroup({
 						chunkedLoading: true,
 						maxClusterRadius: 70,
 						iconCreateFunction: function (cluster) {
@@ -831,11 +677,11 @@
 					}
 
 					// Add marker list to layer
-					layers[id].leaflet.addLayers(markerList);
+					this.layers[id].leaflet.addLayers(markerList);
 				}else{
-					layers[id].leaflet = L.geoJSON(layers[id].data,geoattrs);
+					this.layers[id].leaflet = L.geoJSON(layers[id].data,geoattrs);
 				}
-				layers[id].leaflet.addTo(map);
+				this.layers[id].leaflet.addTo(this.map);
 				//updateMap();
 			}
 			return this;
@@ -861,11 +707,10 @@
 			tooltip.innerHTML = (_obj.drawingtype=="marker" ? "" : (e.layer.editor._drawnLatLngs.length < e.layer.editor.MIN_VERTEX ? 'Click on the map to continue '+_obj.drawingtype+'.': 'Click on last point to finish '+_obj.drawingtype+'.'));
 		}
 
-
 		function stopDrawing(e){
 			_obj.drawing = false;
-			S('.leaflet-draw-toolbar .active').removeClass('active');
-			map.editTools.stopDrawing();
+			_obj.target.find('.leaflet-draw-toolbar .active').removeClass('active');
+			_obj.map.editTools.stopDrawing();
 			removeTooltip(e);
 			return;
 		}
@@ -876,10 +721,10 @@
 			}else{
 				me.drawing = true;
 				el.addClass('active');
-				map.editTools.featuresLayer = layers[id].leaflet;
-				if(typ=="polyline") window.LAYER = map.editTools.startPolyline.call(map.editTools);
-				if(typ=="polygon") window.LAYER = map.editTools.startPolygon.call(map.editTools);
-				if(typ=="marker") window.LAYER = map.editTools.startMarker.call(map.editTools,map.editTools,{'icon':makeMarker(layers[id].colour)});
+				_obj.map.editTools.featuresLayer = this.layers[id].leaflet;
+				if(typ=="polyline") window.LAYER = _obj.map.editTools.startPolyline.call(_obj.map.editTools);
+				if(typ=="polygon") window.LAYER = _obj.map.editTools.startPolygon.call(_obj.map.editTools);
+				if(typ=="marker") window.LAYER = _obj.map.editTools.startMarker.call(_obj.map.editTools,_obj.map.editTools,{'icon':makeMarker(layers[id].colour)});
 			}
 			return;
 		}
@@ -888,16 +733,16 @@
 			if(this.editing) this.stopEditLayer();
 			if(layers[id]){
 				this.editing = id;
-				S('#layers li.edit').removeClass('edit');
-				S('.editor').remove();
-				S('#'+id).addClass('edit').removeClass('open');
+				this.target.find('.layers li.edit').removeClass('edit');
+				this.target.find('.editor').remove();
+				this.layerlookup[id].addClass('edit').removeClass('open');
 				// If the Leaflet layer doesn't exist, create a layerGroup
-				if(!layers[id].leaflet) layers[id].leaflet = new L.layerGroup();
+				if(!this.layers[id].leaflet) this.layers[id].leaflet = new L.layerGroup();
 				// Add the layer to the map
-				layers[id].leaflet.addTo(map);
+				this.layers[id].leaflet.addTo(this.map);
 				// If we have any features we need to make them editable
-				layers[id].leaflet.eachLayer(function(layer) { layer.enableEdit(); });
-				map.on('editable:drawing:start', function(e){
+				this.layers[id].leaflet.eachLayer(function(layer) { layer.enableEdit(); });
+				this.map.on('editable:drawing:start', function(e){
 					if(e.layer.setStyle) e.layer.setStyle({color: layers[id].colour});
 					addTooltip(e);
 				}).on('editable:drawing:end', function(e){
@@ -911,34 +756,34 @@
 				this.setLayerColours(id);				
 
 				// Add the Editor HTML
-				S('#'+id).append('<div class="editor"><div><div class="left padded"><form><div class="row"><label for="edit-name">Title:</label><input type="text" id="edit-name" name="edit-name" value="'+layers[id].name+'" /></div><div class="row"><label for="edit-desc">Description:</label><textarea id="edit-desc">'+(layers[id].desc ? layers[id].desc:'')+'</textarea></div><div class="row"><label for="edit-url">Website:</label><input type="url" id="edit-url" name="edit-url" value="'+layers[id].url+'" /></div><div class="row"><label for="edit-color">Colour:</label><input type="color" id="edit-color" name="edit-color" value="'+layers[id].colour+'" /></div></form></div><div class="right"><div class="leaflet-draw-toolbar leaflet-bar leaflet-draw-toolbar-top"><a class="leaflet-draw-draw-polyline" href="#" title="Draw a polyline"><span class="sr-only">Draw a polyline</span></a><a class="leaflet-draw-draw-polygon" href="#" title="Draw a polygon"><span class="sr-only">Draw a polygon</span></a><a class="leaflet-draw-draw-marker" href="#" title="Draw a marker"><span class="sr-only">Draw a marker</span></a></div><input id="editor-save" type="submit" value="Save" /></div></div></div>');
+				this.layerlookup[id].append('<div class="editor"><div><div class="left padded"><form><div class="row"><label for="edit-name">Title:</label><input type="text" id="edit-name" name="edit-name" value="'+layers[id].name+'" /></div><div class="row"><label for="edit-desc">Description:</label><textarea id="edit-desc">'+(layers[id].desc ? layers[id].desc:'')+'</textarea></div><div class="row"><label for="edit-url">Website:</label><input type="url" id="edit-url" name="edit-url" value="'+layers[id].url+'" /></div><div class="row"><label for="edit-color">Colour:</label><input type="color" id="edit-color" name="edit-color" value="'+layers[id].colour+'" /></div></form></div><div class="right"><div class="leaflet-draw-toolbar leaflet-bar leaflet-draw-toolbar-top"><a class="leaflet-draw-draw-polyline" href="#" title="Draw a polyline"><span class="sr-only">Draw a polyline</span></a><a class="leaflet-draw-draw-polygon" href="#" title="Draw a polygon"><span class="sr-only">Draw a polygon</span></a><a class="leaflet-draw-draw-marker" href="#" title="Draw a marker"><span class="sr-only">Draw a marker</span></a></div><input id="editor-save" type="submit" value="Save" /></div></div></div>');
 //				S('#saver').html('<input id="editor-save" type="submit" value="Save" />').css({'display':''});
 
 
 				// Add events to elements we've just added
-				S('#editor-save').on('click',{me:this},function(e){
-					S('#'+id+' form').trigger('submit');
+				this.target.find('.editor-save').on('click',{me:this,id:id},function(e){
+					this.layerlookup[e.data.id].find('form').trigger('submit');
 				});
-				S('#edit-color').on('change',{me:this},function(e){
-					layers[id].colour = S('#edit-color')[0].value;
+				this.target.find('.edit-color').on('change',{me:this},function(e){
+					layers[id].colour = e.data.me.target.find('.edit-color')[0].value;
 					e.data.me.setLayerColours(id);
 				});
-				S('#'+id+' form').on('submit',function(e){
+				this.layerlookup[id].find('form').on('submit',function(e){
 					e.preventDefault();
 					e.stopPropagation();
 					_obj.stopEditLayer();
 				});
-				S('.leaflet-draw-draw-polyline').on('click',{me:this},function(e){
+				this.target.find('.leaflet-draw-draw-polyline').on('click',{me:this},function(e){
 					e.stopPropagation();
 					e.preventDefault();
 					drawItem(this,e.data.me,'polyline',id);
 				});
-				S('.leaflet-draw-draw-polygon').on('click',{me:this},function(e){
+				this.target.find('.leaflet-draw-draw-polygon').on('click',{me:this},function(e){
 					e.stopPropagation();
 					e.preventDefault();
 					drawItem(this,e.data.me,'polygon',id);
 				});
-				S('.leaflet-draw-draw-marker').on('click',{me:this},function(e){
+				this.target.find('.leaflet-draw-draw-marker').on('click',{me:this},function(e){
 					e.stopPropagation();
 					e.preventDefault();
 					drawItem(this,e.data.me,'marker',id);
@@ -947,44 +792,46 @@
 				// Loop over visible layers and find out if we need to hide any
 				var showmessage = false;
 				for(var k in layers){
-					if(layers[k].active && k != id && layers[k].odbl){
+					if(this.layers[k].active && k != id && layers[k].odbl){
 						//(typeof layers[k].licence==="object" ? layers[k].licence.text || layers[k].licence).toLowerCase() != "odbl"){
 						showmessage = true;
-						if(layers[k].active){
+						if(this.layers[k].active){
 							this.hideLayer(k);
 							this.temporaryhide.push(k);
 						}
 					}
 				}
 			
-				if(S('.message').length > 0 && showmessage){
-					S('.message').html("<button class='close'>"+getIcon('remove')+"</button>We've temporarily hidden some layers because of copyright. They'll reappear once you stop editing.");
-					S('#message .close').on('click',function(e){ S('#message').remove(); });
-					S('body').addClass('hasmessage');
+				if(this.target.find('.message').length > 0 && showmessage){
+					this.target.find('.message').html("<button class='close'>"+getIcon('remove')+"</button>We've temporarily hidden some layers because of copyright. They'll reappear once you stop editing.");
+					this.target.find('.message .close').on('click',function(e){ S('#message').remove(); });
+					this.target.find.addClass('hasmessage');
 				}
 			}
 			return this;
 		}
 
 		this.changeLayerID = function(id,id2){
-			console.log('changeLayerID',id,id2)
+			this.log('changeLayerID',id,id2)
 			if(id==id2){
-				console.log('No need to change name')
+				this.log('No need to change name')
 				return this;
 			}
 			if(layers[id]){
 				if(!layers[id2]){
 					layers[id2] = layers[id];
 					delete layers[id];
-					visible[id2] = visible[id];
-					delete visible[id];
+					this.layers[id2] = this.layers[id];
+					delete this.layers[id];
+					this.visible[id2] = this.visible[id];
+					delete this.visible[id];
 					// Update the ID of the layer in the list
-					S('#'+id).attr('id',id2);
+					//BLAHthis.layerlookup[id].attr('id',id2);
 				}else{
-					console.log('A layer with the ID '+id2+' already exists. Cowardly refusing to re-ID '+id);
+					this.log('A layer with the ID '+id2+' already exists. Cowardly refusing to re-ID '+id);
 				}
 			}else{
-				console.log('No layer '+id+' to re-ID');
+				this.log('No layer '+id+' to re-ID');
 			}
 			return this;
 		}
@@ -993,25 +840,25 @@
 
 			if(!id && this.editing) id = this.editing;
 
-			console.log('saveLayer',id)
-			if(!layers[id]) return this;
+			this.log('saveUserLayer',id)
 
+			if(!layers[id]) return this;
 
 			// Now we need to load the layers
 			// If the ID starts with "temporary-layer" we don't send that ID
 			url = "https://www.imactivate.com/urbancommons/saveUserLayer.php?id="+(id.indexOf("temporary-layer")==0 ? "" : id)+"&name="+layers[id].name+"&desc="+(layers[id].desc ? layers[id].desc:'')+"&url="+layers[id].url+"&colour="+layers[id].colour.substr(1)+"&data="+JSON.stringify(layers[id].data);
 
-			console.log('Saving to '+url);
+			this.log('Saving to '+url);
 			S(document).ajax(url,{
 				'dataType':'jsonp',
 				'this':this,
 				'success':function(d){
-					console.log('return is ',d);
+					this.log('return is ',d);
 					if(d.msg=="success"){
 						// We need to re-ID the layer
 						this.changeLayerID(id,d.key);
 					}else{
-						console.log('saveUserLayer went wrong in some way')
+						this.log('saveUserLayer went wrong in some way')
 					}
 				}
 			});
@@ -1021,25 +868,25 @@
 
 		this.stopEditLayer = function(){
 			if(this.editing) id = this.editing;
-			console.log('stopEditLayer',id,this.editing)
+			this.log('stopEditLayer',id,this.editing)
 			if(layers[id]){
 				// Need to save
-				layers[id].name = S('#edit-name')[0].value;
-				layers[id].desc = S('#edit-desc')[0].value || "";
-				layers[id].url = S('#edit-url')[0].value;
-				layers[id].colour = S('#edit-color')[0].value;
+				layers[id].name = this.target.find('.edit-name')[0].value;
+				layers[id].desc = this.target.find('.edit-desc')[0].value || "";
+				layers[id].url = this.target.find('.edit-url')[0].value;
+				layers[id].colour = this.target.find('.edit-color')[0].value;
 				// Disable edit on feature
-				layers[id].leaflet.eachLayer(function(layer) { layer.disableEdit(); });
+				this.layers[id].leaflet.eachLayer(function(layer) { layer.disableEdit(); });
 				// Store the layer as data
-				layers[id].data = layers[id].leaflet.toGeoJSON();
+				layers[id].data = this.layers[id].leaflet.toGeoJSON();
 				_obj.setLayerColours(id);
 				_obj.updateLayers();
 				this.saveUserLayer();
-				S('#layers li.edit').removeClass('edit');
-				S('.editor').remove();
-				S('.message').html("");
-				S('#saver').html("").css({'display':'none'});
-				S('body').removeClass('hasmessage');
+				this.target.find('.layers li.edit').removeClass('edit');
+				this.target.find('.editor').remove();
+				this.target.find('.message').html("");
+				this.target.find('.saver').html("").css({'display':'none'});
+				this.target.removeClass('hasmessage');
 				for(var i = 0; i < this.temporaryhide.length; i++){
 					this.showLayer(this.temporaryhide[i]);
 				}
@@ -1050,13 +897,12 @@
 		}
 
 		this.finishLoadingLayers = function(){
-			console.log('finishLoadingLayers',this,this.layerstoload,this.src.length,this.srcloaded)
+			this.log('finishLoadingLayers',this,this.layerstoload,this.src.length,this.srcloaded)
 			if(this.src.length > 0 && this.srcloaded < this.src.length) return;
 			if(layers){
-console.log('Processing',this,this.layerstoload)
 				this.layersloaded = true;
 				for(var i = this.layerstoload.length-1; i >= 0; i--){
-					console.log('loadLayer',i,this.layerstoload[i])
+					this.log('loadLayer',i,this.layerstoload[i])
 					this.loadLayer(this.layerstoload[i]);
 					this.layerstoload.pop();
 				}
@@ -1103,7 +949,7 @@ console.log('Processing',this,this.layerstoload)
 		};
 
 		this.loadLayerData = function(id){
-console.log('loadLayerData',id)
+			this.log('loadLayerData',id)
 			if(!layers[id]) return this;
 
 			if(!layers[id].metadata) return this;
@@ -1130,107 +976,111 @@ console.log('loadLayerData',id)
 
 		this.loadLayer = function(id){
 			if(!this.layersloaded){ this.layerstoload.push(id); return; }
-			if(!layers[id]){ layers[id] = {'active':false}; }
+			if(!layers[id]){ layers[id] = {}; }
+			if(!this.layers[id]){ this.layers[id] = {'active':false}; }
 			if(layers[id].metadata) return this.loadLayerData(id);
-			if(!layers[id].active){
+			if(!this.layers[id].active){
 				// Update color of layer
 				this.setLayerColours(id);
 
-				if(S('#'+id).length == 0){
-					S('#layers ul').append('<li id="'+id+'" class="loading"><a href="#" class="heading padding" tabindex="0">'+(layers[id] ? layers[id].name||id : id)+'<span class="loading">| loading...</span></a><div class="nav padding">'+(layers[id].edit ? '<a href="#" class="edit" title="Edit this layer">'+getIcon('edit',layers[id].textcolor)+'</a>':'')+'<a href="#" class="info" title="Show information about this layer">'+getIcon('info',layers[id].textcolor)+'</a><a href="#" class="fit" title="Change the map view to fit this layer">'+getIcon('fit',layers[id].textcolor)+'</a><a href="#" class="toggle" title="Toggle layer visibility">'+getIcon('hide',layers[id].textcolor)+'</a>'+'<a href="#" class="remove" title="Remove this layer">'+getIcon('remove',layers[id].textcolor)+'</a></div><div class="description"><div class="padding">'+(layers[id].desc ? layers[id].desc:'')+'<p class="credit"><a href="'+layers[id].url+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p></div><div class="download"></div></div></li>');
+				if(!this.layerlookup[id]){
+					var el = document.createElement('li');
+					el.setAttribute('class','loading');
+					el.setAttribute('data-id',id);
+					el.innerHTML = '<a href="#" class="heading padding" tabindex="0">'+(layers[id] ? layers[id].name||id : id)+'<span class="loading">| loading...</span></a><div class="nav padding">'+(layers[id].edit ? '<a href="#" class="edit" title="Edit this layer">'+getIcon('edit',layers[id].textcolor)+'</a>':'')+'<a href="#" class="info" title="Show information about this layer">'+getIcon('info',layers[id].textcolor)+'</a><a href="#" class="fit" title="Change the map view to fit this layer">'+getIcon('fit',layers[id].textcolor)+'</a><a href="#" class="toggle" title="Toggle layer visibility">'+getIcon('hide',layers[id].textcolor)+'</a>'+'<a href="#" class="remove" title="Remove this layer">'+getIcon('remove',layers[id].textcolor)+'</a></div><div class="description"><div class="padding">'+(layers[id].desc ? layers[id].desc:'')+'<p class="credit"><a href="'+layers[id].url+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p></div><div class="download"></div></div>';
+					this.layerlookup[id] = S(this.target.find('.layers ul')[0].appendChild(el));
+
+					this.log('layerlookup',this.layerlookup)
+					//this.target.find('.layers ul').append('<li id="'+id+'" class="loading"><a href="#" class="heading padding" tabindex="0">'+(layers[id] ? layers[id].name||id : id)+'<span class="loading">| loading...</span></a><div class="nav padding">'+(layers[id].edit ? '<a href="#" class="edit" title="Edit this layer">'+getIcon('edit',layers[id].textcolor)+'</a>':'')+'<a href="#" class="info" title="Show information about this layer">'+getIcon('info',layers[id].textcolor)+'</a><a href="#" class="fit" title="Change the map view to fit this layer">'+getIcon('fit',layers[id].textcolor)+'</a><a href="#" class="toggle" title="Toggle layer visibility">'+getIcon('hide',layers[id].textcolor)+'</a>'+'<a href="#" class="remove" title="Remove this layer">'+getIcon('remove',layers[id].textcolor)+'</a></div><div class="description"><div class="padding">'+(layers[id].desc ? layers[id].desc:'')+'<p class="credit"><a href="'+layers[id].url+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p></div><div class="download"></div></div></li>');
 					// Show/hide the layer menu
-					S('#'+id+' .heading').on('focus',function(e){
+					this.layerlookup[id].find('.heading').on('focus',function(e){
 						S('#layers .focus').removeClass('focus');
 						S(e.currentTarget.parentElement).addClass('focus');
 					}).on('mouseover',function(e){
 						S('#layers .focus').removeClass('focus');
 						S(e.currentTarget.parentElement).addClass('focus');
-					}).on('click',function(e){
+					}).on('click',{id:id},function(e){
 						e.stopPropagation();
 						e.preventDefault();
-						if(_obj.editing == id) _obj.stopEditLayer();
+						if(_obj.editing == e.data.id) _obj.stopEditLayer();
 						S(e.currentTarget.parentElement).toggleClass('open').removeClass('edit');
 					});
-					S('#'+id+' .info').on('click',function(e){
+
+					this.layerlookup[id].find('.info').on('click',{me:this,id:id},function(e){
 						e.stopPropagation();
 						e.preventDefault();
-						S('#'+id+' .heading').trigger('click');
+						e.data.me.layerlookup[e.data.id].find('.heading').trigger('click');
 					});
-					S('#'+id+' .nav').on('mouseover',function(e){
-						S('#layers .focus').removeClass('focus');
+
+					this.layerlookup[id].find('.nav').on('mouseover',{me:this},function(e){
+						e.data.me.target.find('.layers .focus').removeClass('focus');
 						S(e.currentTarget.parentElement).addClass('focus');
 					});
-					S('#layers').on('mouseout',function(e){
-						S('#layers .focus').removeClass('focus');
+
+					this.target.find('.layers').on('mouseout',{me:this},function(e){
+						e.data.me.target.find('.layers .focus').removeClass('focus');
 					});
-					S('#'+id+' .remove').on('click',function(e){
+
+					this.layerlookup[id].find('.remove').on('click',{id:id},function(e){
 						e.stopPropagation();
 						e.preventDefault();
-						// Get the ID of the layer (don't rely on the value we can see from outside)
-						id = S(this[0]).parent().parent().attr('id');
-						_obj.removeLayer(id);
+						_obj.removeLayer(e.data.id);
 					});
-					S('#'+id+' .edit').on('click',function(e){
+					this.layerlookup[id].find('.edit').on('click',{id:id},function(e){
 						e.stopPropagation();
 						e.preventDefault();
-						// Get the ID of the layer (don't rely on the value we can see from outside)
-						id = S(this[0]).parent().parent().attr('id');
-						_obj.startEditLayer(id);
+						_obj.startEditLayer(e.data.id);
 					});
-					S('#'+id+' .toggle').on('click',function(e){
+					this.layerlookup[id].find('.toggle').on('click',{id,id},function(e){
 						e.stopPropagation();
 						e.preventDefault();
-						// Get the ID of the layer (don't rely on the value we can see from outside)
-						id = S(this[0]).parent().parent().attr('id');
-						_obj.toggleLayer(id);
-						updateMap();
+						_obj.toggleLayer(e.data.id);
+						_obj.updateMap();
 					});
-					S('#'+id+' .fit').on('click',function(e){
+					this.layerlookup[id].find('.fit').on('click',{id:id},function(e){
 						e.stopPropagation();
 						e.preventDefault();
-						// Get the ID of the layer (don't rely on the value we can see from outside)
-						id = S(this[0]).parent().parent().attr('id');
-						_obj.fitLayer(id);
-						//updateMap();
+						_obj.fitLayer(e.data.id);
 					});
 
 				}
 				if(typeof layers[id].geojson==="object"){
-					S('#'+id).removeClass('loading').find('.loading').remove();
+					this.layerlookup[id].removeClass('loading').find('.loading').remove();
 					if(layers[id]){
 						layers[id].data = layers[id].geojson;
 						this.addLayer(id);
-						updateMap();
+						_obj.updateMap();
 					}
 				}else if(typeof layers[id].geojson === "string"){
 					S(document).ajax(layers[id].geojson,{
 						'id':id,
 						'dataType':'json',
-						'loader':S('#'+id).find('.loading'),
+						'loader':this.layerlookup[id].find('.loading'),
 						'beforeSend': function(XMLHttpRequest,attr){
 							//Download progress
 							XMLHttpRequest.addEventListener("progress", function(evt){
 								if(evt.lengthComputable){
 									var pc = (100 * evt.loaded / evt.total).toFixed(1);
 									var a = layers[attr.id].colour || '#dddddd';
-									S('#'+attr.id).css({'background':'linear-gradient(90deg,'+a+' 0%, '+a+' '+pc+'%, white '+pc+'%)'});
+									_obj.layerlookup[attr.id].css({'background':'linear-gradient(90deg,'+a+' 0%, '+a+' '+pc+'%, white '+pc+'%)'});
 									attr.loader.html(': '+pc+'%');
 								}
 							}, false);
 							return XMLHttpRequest;
 						},
 						'success': function(data,attr){
-							S('#'+attr.id).removeClass('loading').find('.loading').remove();
+
+							_obj.layerlookup[attr.id].removeClass('loading').find('.loading').remove();
 							if(layers[attr.id]){
 								layers[attr.id].data = data;
 								_obj.addLayer(attr.id);
-								updateMap();
+								_obj.updateMap();
 							}
 						},
-						'error': function(e){ S('#'+id).find('.loading').html('(failed to load)'); }
+						'error': function(e){ _obj.layerlookup[id].find('.loading').html('(failed to load)'); }
 					});
 				}else{
-					S('#'+id).removeClass('loading').find('.loading').html('');
+					this.layerlookup[id].removeClass('loading').find('.loading').html('');
 				}
 			}
 			return this;
@@ -1244,12 +1094,13 @@ console.log('loadLayerData',id)
 			return (b)+" bytes";
 		}
 
-
+		
 		function processResult(name){
 			var html = "";
 			var tmp = new Array();
+			_obj.log('processResult',name)
 
-			if(S('#searchresults').length <= 0) S('#layersearch').after('<div id="searchresults"></div>');
+			if(_obj.target.find('.layer-search .searchresults').length < 1) _obj.target.find('.layer-search form').after('<div class="searchresults"></div>');
 
 			if(typeof name==="string" && name.length > 0){
 				name = name.toLowerCase();
@@ -1261,30 +1112,30 @@ console.log('loadLayerData',id)
 				for(var i in layers){
 					var dist = 100000;
 					if(layers[i].name){
-						layers[i].rank = 0;
+						_obj.layers[i].rank = 0;
 						var idx = layers[i].name.toLowerCase().indexOf(name);
-						if(idx >= 0 && !layers[i].active){
-							if(idx==0) layers[i].rank += 10;
-							layers[i].rank += 1/(Math.abs(layers[i].name.length-name.length)+1);
+						if(idx >= 0 && !_obj.layers[i].active){
+							if(idx==0) _obj.layers[i].rank += 10;
+							_obj.layers[i].rank += 1/(Math.abs(layers[i].name.length-name.length)+1);
 						}
 						if(layers[i].desc){
 							var idx = layers[i].desc.toLowerCase().indexOf(name);
-							if(idx >= 0 && !layers[i].active) layers[i].rank++;
+							if(idx >= 0 && !_obj.layers[i].active) _obj.layers[i].rank++;
 						}
 						if(layers[i].credit && layers[i].credit.src){
 							var idx = layers[i].credit.src.toLowerCase().indexOf(name);
-							if(idx >= 0 && !layers[i].active) layers[i].rank++;
+							if(idx >= 0 && !_obj.layers[i].active) _obj.layers[i].rank++;
 						}
 						if(layers[i].keywords){
 							var kw = layers[i].keywords.split(/,/);
 							var idx;
 							for(var k = 0; k < kw.length; k++){
 								idx = kw[k].toLowerCase().indexOf(name);
-								if(idx >= 0 && !layers[i].active) layers[i].rank++;
+								if(idx >= 0 && !_obj.layers[i].active) _obj.layers[i].rank++;
 							}
 						}
-						layers[i].id = i;
-						if(layers[i].rank > 0){
+						_obj.layers[i].id = i;
+						if(_obj.layers[i].rank > 0){
 							if(layers[i].centre && layers[i].centre.length == 2){
 								// Calculate the distance
 								try {
@@ -1292,9 +1143,9 @@ console.log('loadLayerData',id)
 								}catch (err){
 			
 								}
-								layers[i].rank += Math.min(10,(1000/dist));
+								_obj.layers[i].rank += Math.min(10,(1000/dist));
 							}
-							tmp.push(layers[i]);
+							tmp.push(_obj.layers[i]);
 						}
 					}
 				}
@@ -1305,27 +1156,29 @@ console.log('loadLayerData',id)
 
 				// Loop over layers and work out a ranking
 				for(var i in layers){
-					if(layers[i].name && !layers[i].active){
-						layers[i].id = i;
-						layers[i].namelc = layers[i].name.toLowerCase();
-						tmp.push(layers[i]);
+					if(layers[i].name && !_obj.layers[i].active){
+						_obj.layers[i].id = i;
+						_obj.layers[i].namelc = layers[i].name.toLowerCase();
+						tmp.push(_obj.layers[i]);
 					}
 				}
 				var tmp = sortBy(tmp,'namelc',true);
 				var n = tmp.length;
 			}
 			if(tmp.length > 0){
-				S('#searchresults li').off('click');
+				_obj.target.find('.layer-search .searchresults li').off('click');
 				html = "<ol>";
+				var l;
 				for(var i = 0; i < n; i++){
-					tcredit = getCredit(tmp[i],"src");
-					html += '<li data-id="'+tmp[i].id+'" '+(i==0 ? ' class="selected"':'')+'><a href="#" class="padding name">'+tmp[i].name+(tcredit ? ' ('+tcredit+(tmp[i].size ? '; '+niceSize(tmp[i].size):'')+')' : '')+'</a></li>';
+					l = layers[tmp[i].id];
+					tcredit = getCredit(l,"src");
+					html += '<li data-id="'+tmp[i].id+'" '+(i==0 ? ' class="selected"':'')+'><a href="#" class="padding name">'+l.name+(tcredit ? ' ('+tcredit+(l.size ? '; '+niceSize(l.size):'')+')' : '')+'</a></li>';
 				}
 				html += "</ol>";
 			}
-			S('#searchresults').html(html);
-			var li = S('#searchresults li a');
-			for(var i = 0 ; i < li.e.length ; i++) S(li.e[i]).on('click',function(e){ e.preventDefault(); console.log('here'); selectName(this.parent()); });
+			_obj.target.find('.layer-search .searchresults').html(html);
+			var li = _obj.target.find('.layer-search .searchresults li a');
+			for(var i = 0 ; i < li.e.length ; i++) S(li.e[i]).on('click',function(e){ e.preventDefault(); selectName(this.parent()); });
 
 			return;
 		}
@@ -1354,13 +1207,11 @@ console.log('loadLayerData',id)
 			});
 		}
 
-		this.init();
-
+		return this;
 	}
 
 
 	// adapted from http://www.dorcus.co.uk/carabus/ngr_ll.html
-
 	function OSGridToLatLon(coo) {
 		var coord = new GridRef(coo[0],coo[1]);
 		var ll = coord.latlon();

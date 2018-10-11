@@ -5,14 +5,23 @@
 	<meta charset="utf-8" />
 	<title>Data Mapper</title>
 	<script type="text/javascript" src="resources/stuquery.js"></script>
+	<script language="javascript" type="text/javascript" src="resources/formatexamples.js"></script>
+	<script type="text/javascript" src="resources/leaflet/leaflet.js"></script>
+	<script type="text/javascript" src="resources/datamapper.js"></script>
+	<script type="text/javascript" src="resources/highlight/highlight.pack.js"></script>
 	<link rel="StyleSheet" href="resources/leaflet/leaflet.css" type="text/css" />
-	<link rel="StyleSheet" href="resources/style-page.css" type="text/css" />
+	<link rel="StyleSheet" href="resources/datamapper.css" type="text/css" />
+	<link rel="StyleSheet" href="resources/style.css" type="text/css" />
+	<link rel="stylesheet" href="resources/highlight/highlight.css">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:site" content="@ODILeeds">
 	<meta name="twitter:url" property="og:url" content="https://odileeds.org/projects/mapper/">
 	<meta name="twitter:title" property="og:title" content="ODI Leeds Data Mapper">
 	<meta name="twitter:description" property="og:description" content="Mapping open datasets.">
 	<meta name="twitter:image" property="og:image" content="https://odileeds.org/projects/mapper/mapper.png">
+	<style>
+	h1, h2, h3, h4 { font-weight: 700; }
+	</style>
 </head>
 <body>
 
@@ -28,9 +37,37 @@
 			<p>Developed from a co-creation project with <a href="https://odileeds.org/projects/leeds-urban-commons/">ODI Leeds</a>, the <a href="https://lssi.leeds.ac.uk">University of Leeds</a>, <a href="http://baumanlyons.co.uk/news/updateleeds-love-it-share-it">Leeds Love It Share It</a> and <a href="https://leedscitylab.wordpress.com/">Leeds City Lab</a>. This is a prototype tool developed from <a href="https://odileeds.org/projects/commonground/">Common Ground</a>.</p>
 		</div>
 		<div class="holder padded">
-			<iframe src="map.html" style="width: 100%;height: 600px;border:1px solid black;"></iframe>
+			<div class="example">
+				<div id="map1" style="width:100%;height:600px;border:1px solid black;"></div>
+				<script>
+				S(document).ready(function(){
+					baseMaps = {
+						'National Library of Scotland': L.tileLayer('https://geo.nls.uk/maps/os/1inch_2nd_ed/{z}/{x}/{y}.png', {
+							attribution: 'Tiles: &copy; <a href="http://geo.nls.uk/maps/">National Library of Scotland Historic Maps</a>',
+							bounds: [[49.6, -12], [61.7, 3]],
+							minZoom: 1,
+							maxZoom: 18,
+							subdomains: '0123'
+						}),
+						'Esri WorldImagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+							attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+						}),
+					}
+					var commons = new DataMapper({
+						'id': 'map1',
+						'baseMaps': baseMaps,
+						'src': [
+							'layers/layers.json',
+							'https://raw.githubusercontent.com/odileeds/west-yorkshire-mapping/master/data/mapper.json'
+						]
+					});
+					commons.init();
+				});
+				</script>
+			</div>
 		</div>
 	</div>
 
-	</body>
+	
+</body>
 </html>
