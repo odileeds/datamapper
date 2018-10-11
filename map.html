@@ -20,34 +20,41 @@
 	<script>
 	var mapper;
 	S(document).ready(function(){
-		baseMaps = {
-			'National Library of Scotland': L.tileLayer('https://geo.nls.uk/maps/os/1inch_2nd_ed/{z}/{x}/{y}.png', {
-				attribution: 'Tiles: &copy; <a href="http://geo.nls.uk/maps/">National Library of Scotland Historic Maps</a>',
-				bounds: [[49.6, -12], [61.7, 3]],
-				minZoom: 1,
-				maxZoom: 18,
-				subdomains: '0123'
-			}),
-			'Esri WorldImagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-				attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-			}),
-			'Hill shading': L.tileLayer('http://{s}.tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png', {
-				maxZoom: 15,
-				attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-			}),
-			'Dark': L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {
-				attribution: 'Tiles: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
-				subdomains: 'abcd',
-				maxZoom: 19
-			})
-		}
-		mapper = new DataMapper({'id':'mapper1','baseMaps':baseMaps,'src':['layers/layers.json','https://raw.githubusercontent.com/odileeds/west-yorkshire-mapping/master/data/mapper.json']});
+		baseMaps = 
+		mapper = new DataMapper({
+			'id':'mapper',
+			'baseMaps':{
+				'National Library of Scotland': L.tileLayer('https://geo.nls.uk/maps/os/1inch_2nd_ed/{z}/{x}/{y}.png', {
+					attribution: 'Tiles: &copy; <a href="http://geo.nls.uk/maps/">National Library of Scotland Historic Maps</a>',
+					bounds: [[49.6, -12], [61.7, 3]],
+					minZoom: 1,
+					maxZoom: 18,
+					subdomains: '0123'
+				}),
+				'Esri WorldImagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+					attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+				}),
+				'Hill shading': L.tileLayer('http://{s}.tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png', {
+					maxZoom: 15,
+					attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+				}),
+				'Dark': L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {
+					attribution: 'Tiles: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+					subdomains: 'abcd',
+					maxZoom: 19
+				})
+			},
+			'src':[
+				'layers/layers.json',
+				'https://raw.githubusercontent.com/odileeds/west-yorkshire-mapping/master/data/mapper.json'
+			]
+		});
 		mapper.init();
 		mapper.addPlaceSearch();
 	});
 	</script>
 	<style>
-	html,body,#mapper1 {
+	html,body,#mapper {
 		height: 100%;
 	}
 	header { background-image: url('https://odileeds.org/resources/images/odileeds.svg')!important; background-repeat: no-repeat!important; background-position: center center!important; }
@@ -55,7 +62,7 @@
 </head>
 <body>
 
-	<div id="mapper1">
+	<div id="mapper">
 		
 		<header class="b2-bg">
 			<h1>ODI Leeds Data Mapper v0.5</h1>
