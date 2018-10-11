@@ -4,7 +4,7 @@ S(document).ready(function(){
 	var examples = S('.example');
 	function tidy(t){ return t.replace(/===NEWLINE===/g,"\n").replace(/\n*$/,"").replace(/^\n*/,""); }
 	function sanitise(t){ return t.replace(/\</g,"&lt;").replace(/\>/g,"&gt;"); }
-	function deindent(t){ var indent = ""; t.replace(/^([\s\t]+)/,function(m,p1,p2){ indent = m; }); return t.replace(new RegExp(indent,'g'),"").replace(/[\s\t]+$/,""); }
+	function deindent(t){ var indent = ""; t.replace(/^([\s\t]+)/,function(m,p1,p2){ indent = m; }); console.log('='+indent+'='); return t.replace(new RegExp("(^|\n)"+indent,'g'),function(m,p1){return p1;}).replace(/[\s\t]+$/,""); }
 	for(var i = 0; i < examples.length; i++){
 		html = examples[i].innerHTML;
 		css = "";

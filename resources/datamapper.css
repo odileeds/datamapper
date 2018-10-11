@@ -55,12 +55,12 @@ body.hasmessage .panel:last-child {
 	padding: 0.5em 1em;
 	line-height: 2em;
 	font-size: 1em;
+	font-weight: normal;
 }
 .datamapper .layers .add:hover, .datamapper .layers .add:focus {
 	background-color: #efefef;
 }
 .datamapper .layers h2 {
-	position: relative;
 	z-index: 0;
 	position: relative;
 }

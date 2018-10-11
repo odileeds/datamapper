@@ -77,7 +77,7 @@ a { color: #2f529f; }
 .padded { padding: 1em; }
 .doublepadded { padding: 2em; }
 h1 { font-size: 2em; margin-top: 1em; }
-h2 { font-size: 1.7em; margin-top: 1.7647058823529411em; font-weight: 500; }
+h2 { font-size: 1.7em; margin-top: 1.7647058823529411em; }
 h3 { font-size: 1.4em; margin-top: 1.428571em; }
 h4 { font-size: 1.25em; margin-top: 1em; }
 h1:first-child, h2:first-child, h3:first-child { margin-top: 0; }
