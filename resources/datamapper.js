@@ -84,8 +84,9 @@
 			// This will target all the CSS styles
 			this.target.addClass('datamapper')
 
-			if(this.target.find('input.offside').length == 0) this.target.prepend('<input type="checkbox" id="hamburger" class="offside" checked="checked" data="test" /><label for="hamburger" class="offside b2-bg"><span class="nv">Toggle menu (if not visible)</span><div class="chevron"></div></label>');
 			if(this.target.find('.left').length == 0) this.target.append('<div class="left"></div>');
+		//	if(this.target.find('.left .offside').length == 0)
+				this.target.find('.left').before('<input type="checkbox" id="hamburger" class="offside" checked="checked" data="test" /><label for="hamburger" class="offside b2-bg"><span class="nv">Toggle menu (if not visible)</span><div class="chevron"></div></label>');
 			if(this.target.find('.left .layers').length == 0) this.target.find('.left').prepend('<menu class="panel layers"><div class="panel-inner"><button class="add-layer add">&plus; Add</button><h2>Layers</h2><ul id="layers-list"></ul></div></menu>');
 			if(this.target.find('.left .map').length == 0) this.target.append('<div class="map"><div id="tooltip"></div></div>');
 			if(this.target.find('.left .layer-search').length == 0) this.target.append('<div class="layer-search popup"><button class="close" title="Close"></button><div class="padded inner"><h2>Add a layer</h2><form action="/search/" method="GET"><input class="q" name="q" value="" type="text" placeholder="To search the layers start typing here" autocomplete="off"><input value="" class="b6-bg" type="submit"></form></div></div>');

@@ -1,5 +1,6 @@
 .datamapper { position: relative; overflow: hidden; }
-.datamapper .left { width: 360px; position: relative; top: 3em; left: 0em; z-index: 100; }
+.datamapper header ~ .offside, .datamapper header ~ .left, .datamapper header ~ .map { top: 3em; }
+.datamapper .left { width: 360px; position: relative; left: 0em; z-index: 100; }
 .padded { padding: 1em; }
 a.button, button, .datamapper .signin input[type=submit] {
 	border: 0px;
@@ -233,7 +234,7 @@ body.hasmessage .panel:last-child {
 .datamapper .layers .editor input[type="submit"] { border-style: solid; width: 3em; height: 3em; padding: 0; margin-top: 8px; border: 0px; background: white; }
 .datamapper .layers .editor input[type="submit"]:hover,.datamapper .layers .editor input[type="submit"]:focus { background-color: #bbbbbb; }
 .datamapper .layers .editor .sr-only { display: none; }
-.datamapper .map { position: absolute; top: 3em; left: 0px; right: 0px; bottom: 0px; z-index: 1; }
+.datamapper .map { position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; z-index: 1; }
 .datamapper .map .marker-group {
     border-radius: 100%;
     text-align: center;
@@ -484,10 +485,8 @@ header { z-index: 1000; }
 	width: 100%;
 }
 .datamapper .offside { position: absolute; }
-.datamapper .offside, .datamapper .left {
-	transition: left 0.3s ease-in;
-}
-.datamapper .offside { top: 3em; }
+.datamapper .offside, .datamapper .left { transition: left 0.3s ease-in; }
+
 
 @media only screen and (max-width: 960px) {
 

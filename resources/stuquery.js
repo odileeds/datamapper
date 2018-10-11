@@ -1,5 +1,5 @@
 /*!
- * stuQuery v1.0.14
+ * stuQuery v1.0.15
  */
 // I don't like to pollute the global namespace 
 // but I can't get this to work any other way.
@@ -99,12 +99,12 @@ stuQuery.prototype.prepend = function(j){
 	return this;
 }
 stuQuery.prototype.before=function(t){
-	var i,d,e,j
+	var i,d,e,j,node;
 	for(i = 0 ; i < this.length ; i++){
 		d = document.createElement('div');
 		d.innerHTML = t;
-		e = d.childNodes;
-		for(j = 0; j < e.length; j++) this[i].parentNode.insertBefore(e[j], this[i]);
+		node = this[i];
+		for(j = d.childNodes.length-1; j >= 0; j--) node = this[i].parentNode.insertBefore(d.childNodes[j], node);
 	}
 	return this;
 }
