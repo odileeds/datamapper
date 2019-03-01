@@ -89,7 +89,7 @@
 			if(this.target.find('.left .layers').length == 0) this.target.find('.left').prepend('<menu class="panel layers"><div class="panel-inner"><button class="add-layer add">&plus; Add</button><h2>Layers</h2><ul id="layers-list"></ul></div></menu>');
 			if(this.target.find('.left .map').length == 0) this.target.append('<div class="map"><div id="tooltip"></div></div>');
 			if(this.target.find('.left .layer-search').length == 0) this.target.append('<div class="layer-search popup"><button class="close" title="Close"></button><div class="padded inner"><h2>Add a layer</h2><form action="/search/" method="GET"><input class="q" name="q" value="" type="text" placeholder="To search the layers start typing here" autocomplete="off"><input value="" class="b6-bg" type="submit"></form></div></div>');
-						
+
 			// Add events
 			this.target.find('.layer-search form').on('submit',function(e){
 				e.preventDefault();
@@ -286,9 +286,14 @@
 			return this;
 		}
 		this.log = function(){
-			if(this.logging){
+			if(this.logging || arguments[0]=="ERROR"){
 				var args = Array.prototype.slice.call(arguments, 0);
-				if(console && typeof console.log==="function") console.log('DataMapper',args);
+				var name = "DataMapper";
+				if(console && typeof console.log==="function"){
+					if(arguments[0] == "ERROR") console.log('%cERROR%c %c'+name+'%c: '+args[1],'color:white;background-color:#D60303;padding:2px;','','font-weight:bold;','',(args.length > 2 ? args.splice(2):""));
+					else if(arguments[0] == "WARNING") console.log('%cWARNING%c %c'+name+'%c: '+args[1],'color:white;background-color:#F9BC26;padding:2px;','','font-weight:bold;','',(args.length > 2 ? args.splice(2):""));
+					else console.log('%c'+name+'%c','font-weight:bold;','',args);
+				}
 			}
 			return this;
 		}
@@ -385,7 +390,7 @@
 			// Use that to find the index that corresponds to in the "db" hash
 			var id = selected.attr('data-id');
 			clearResults();
-_obj.log(_obj.layerlookup,id,_obj.layerlookup[id])
+_obj.log('Lookup',_obj.layerlookup,id,_obj.layerlookup[id])
 			if(!_obj.layerlookup[id] || _obj.layerlookup[id].length <= 0){
 				_obj.target.find('.q')[0].value = '';
 				clearResults();
@@ -432,7 +437,7 @@ _obj.log(_obj.layerlookup,id,_obj.layerlookup[id])
 					// Remove the data
 					this.layers[id].leaflet.remove();
 					delete this.layers[id].leaflet;
-					delete this.layerlookup[id];
+					//delete this.layerlookup[id];
 				}
 			}
 			return this;
@@ -448,9 +453,13 @@ _obj.log(_obj.layerlookup,id,_obj.layerlookup[id])
 
 		this.updateLayerState = function(id){
 			if(layers[id]){
-				if(this.layers[id].active) this.layerlookup[id].removeClass('deactivated').css({'color':layers[id].textcolor});
-				else this.layerlookup[id].addClass('deactivated').css({'color':''});
-				this.setLayerColours(id);
+				if(this.layerlookup[id]){
+					if(this.layers[id].active) this.layerlookup[id].removeClass('deactivated').css({'color':layers[id].textcolor});
+					else this.layerlookup[id].addClass('deactivated').css({'color':''});
+					this.setLayerColours(id);
+				}else{
+					this.log('ERROR','Unable to update layer state for '+id,this.layerlookup);
+				}
 			}
 			return this;
 		}
@@ -463,6 +472,7 @@ _obj.log(_obj.layerlookup,id,_obj.layerlookup[id])
 			return this;
 		}
 		this.hideLayer = function(id){
+			this.log('hideLayer');
 			if(layers[id]){
 				this.removeLayerData(id);
 				this.updateLayerState(id);
@@ -545,6 +555,7 @@ _obj.log(_obj.layerlookup,id,_obj.layerlookup[id])
 					}
 				}
 
+				this.log('Check leaflet ',id,this.layers[id]);
 				if(this.layers[id].leaflet) this.removeLayerData(id);
 				this.layers[id].active = true;
 				this.visible[id] = true;
@@ -817,7 +828,8 @@ _obj.log(_obj.layerlookup,id,_obj.layerlookup[id])
 			if(!this.layers[id].active){
 				// Update color of layer
 				this.setLayerColours(id);
-
+				if(!this.layerlookup) this.layerlookup = {};
+this.log('loadLayer',id,this.layerlookup[id],layers,this.layers)
 				if(!this.layerlookup[id]){
 					var el = document.createElement('li');
 					el.setAttribute('class','loading');
@@ -825,7 +837,7 @@ _obj.log(_obj.layerlookup,id,_obj.layerlookup[id])
 					el.innerHTML = '<a href="#" class="heading padding" tabindex="0">'+(layers[id] ? layers[id].name||id : id)+'<span class="loading">| loading...</span></a><div class="nav padding">'+(layers[id].edit ? '<a href="#" class="edit" title="Edit this layer">'+getIcon('edit',layers[id].textcolor)+'</a>':'')+'<a href="#" class="info" title="Show information about this layer">'+getIcon('info',layers[id].textcolor)+'</a><a href="#" class="fit" title="Change the map view to fit this layer">'+getIcon('fit',layers[id].textcolor)+'</a><a href="#" class="toggle" title="Toggle layer visibility">'+getIcon('hide',layers[id].textcolor)+'</a>'+'<a href="#" class="remove" title="Remove this layer">'+getIcon('remove',layers[id].textcolor)+'</a></div><div class="description"><div class="padding">'+(layers[id].desc ? layers[id].desc:'')+'<p class="credit"><a href="'+layers[id].url+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p></div><div class="download"></div></div>';
 					this.layerlookup[id] = S(this.target.find('.layers ul')[0].appendChild(el));
 
-					this.log('layerlookup',this.layerlookup)
+					this.log('layerlookup',JSON.parse(JSON.stringify(this.layerlookup)));
 					//this.target.find('.layers ul').append('<li id="'+id+'" class="loading"><a href="#" class="heading padding" tabindex="0">'+(layers[id] ? layers[id].name||id : id)+'<span class="loading">| loading...</span></a><div class="nav padding">'+(layers[id].edit ? '<a href="#" class="edit" title="Edit this layer">'+getIcon('edit',layers[id].textcolor)+'</a>':'')+'<a href="#" class="info" title="Show information about this layer">'+getIcon('info',layers[id].textcolor)+'</a><a href="#" class="fit" title="Change the map view to fit this layer">'+getIcon('fit',layers[id].textcolor)+'</a><a href="#" class="toggle" title="Toggle layer visibility">'+getIcon('hide',layers[id].textcolor)+'</a>'+'<a href="#" class="remove" title="Remove this layer">'+getIcon('remove',layers[id].textcolor)+'</a></div><div class="description"><div class="padding">'+(layers[id].desc ? layers[id].desc:'')+'<p class="credit"><a href="'+layers[id].url+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p></div><div class="download"></div></div></li>');
 					// Show/hide the layer menu
 					this.layerlookup[id].find('.heading').on('focus',function(e){
@@ -877,8 +889,8 @@ _obj.log(_obj.layerlookup,id,_obj.layerlookup[id])
 						e.preventDefault();
 						_obj.fitLayer(e.data.id);
 					});
-
 				}
+this.log('loadLayer2',id,this.layerlookup)
 				if(typeof layers[id].geojson==="object"){
 					this.layerlookup[id].removeClass('loading').find('.loading').remove();
 					if(layers[id]){
@@ -1110,6 +1122,147 @@ _obj.log(_obj.layerlookup,id,_obj.layerlookup[id])
 		}
 		return (phi2);
 	}
+
+	//--------------------------------------------------
+	// GridRef by Stuart Lowe 2016
+	// A basic function that converts Ordnance Survey 
+	// eastings and northings to latitudes and longitudes
+	//
+	// Usage:
+	//   var coord = new GridRef(434905.47, 428565.17);
+	//   coord.latlon();          // to return WGS84 lat,lon
+	//   coord.latlon('OSGB36');  // to return OSGB36 lat,lon
+	//
+	// Derived from JSCoord (c) 2005 Jonathan Stott
+
+	var GridRef;
+
+	(function() {
+
+		function deg2rad(x){ return x * (Math.PI / 180); }
+		function rad2deg(x) { return x * (180 / Math.PI); }
+
+		function RefEll(maj, min) {
+			this.maj = maj;
+			this.min = min;
+			this.ecc = ((maj * maj) - (min * min)) / (maj * maj);
+			return this;
+		}
+		function sinSquared(x) { return Math.sin(x) * Math.sin(x); }
+		function tanSquared(x) { return Math.tan(x) * Math.tan(x); }
+		function sec(x) { return 1.0 / Math.cos(x); }
+		var airy1830 = new RefEll(6377563.396, 6356256.909);
+		var OSGB_F0	= 0.9996012717;
+		var N0 = -100000.0;
+		var E0 = 400000.0;
+		var phi0 = deg2rad(49.0);
+		var lambda0	= deg2rad(-2.0);
+		var tx = 446.448;
+		var ty = -124.157;
+		var tz = 542.060;
+		var s = -0.0000204894;
+		var rx = deg2rad(0.00004172222);
+		var ry = deg2rad(0.00006861111);
+		var rz = deg2rad(0.00023391666);
+
+
+		function LatLng(lat, lng) {
+			this.lat = lat;
+			this.lng = lng;
+			return this;
+		}
+
+		// OSGB36 to WGS84
+		LatLng.prototype.WGS84 = function() {
+			var a = airy1830.maj;
+			var b = airy1830.min;
+			var eSquared = airy1830.ecc;
+			var phi = deg2rad(this.lat);
+			var lambda = deg2rad(this.lng);
+			var v = a / (Math.sqrt(1 - eSquared * sinSquared(phi)));
+			var H = 0; // height
+			var x = (v + H) * Math.cos(phi) * Math.cos(lambda);
+			var y = (v + H) * Math.cos(phi) * Math.sin(lambda);
+			var z = ((1 - eSquared) * v + H) * Math.sin(phi);
+			var xB = tx + (x * (1 + s)) + (-rx * y)		 + (ry * z);
+			var yB = ty + (rz * x)			+ (y * (1 + s)) + (-rx * z);
+			var zB = tz + (-ry * x)		 + (rx * y)			+ (z * (1 + s));
+			var wgs84 = new RefEll(6378137.000, 6356752.3141);
+			a = wgs84.maj;
+			b = wgs84.min;
+			eSquared = wgs84.ecc;
+
+			var lambdaB = rad2deg(Math.atan(yB / xB));
+			var p = Math.sqrt((xB * xB) + (yB * yB));
+			var phiN = Math.atan(zB / (p * (1 - eSquared)));
+			for (var i = 1; i < 10; i++) {
+				v = a / (Math.sqrt(1 - eSquared * sinSquared(phiN)));
+				phiN1 = Math.atan((zB + (eSquared * v * Math.sin(phiN))) / p);
+				phiN = phiN1;
+			}
+
+			var phiB = rad2deg(phiN);
+		
+			return [phiB,lambdaB];
+		}
+		GridRef = function(easting,northing){
+			this.easting = easting;
+			this.northing = northing;
+			return this;
+		}
+
+		function toLatLon(easting,northing){
+			var a = airy1830.maj;
+			var b = airy1830.min;
+			var eSquared = airy1830.ecc;
+			var phi = 0.0;
+			var lambda = 0.0;
+			var E = easting;
+			var N = northing;
+			var n = (a - b) / (a + b);
+			var M = 0.0;
+			var phiPrime = ((N - N0) / (a * OSGB_F0)) + phi0;
+			do {
+				M =
+					(b * OSGB_F0)
+						* (((1 + n + ((5.0 / 4.0) * n * n) + ((5.0 / 4.0) * n * n * n))
+							* (phiPrime - phi0))
+							- (((3 * n) + (3 * n * n) + ((21.0 / 8.0) * n * n * n))
+								* Math.sin(phiPrime - phi0)
+								* Math.cos(phiPrime + phi0))
+							+ ((((15.0 / 8.0) * n * n) + ((15.0 / 8.0) * n * n * n))
+								* Math.sin(2.0 * (phiPrime - phi0))
+								* Math.cos(2.0 * (phiPrime + phi0)))
+							- (((35.0 / 24.0) * n * n * n)
+								* Math.sin(3.0 * (phiPrime - phi0))
+								* Math.cos(3.0 * (phiPrime + phi0))));
+				phiPrime += (N - N0 - M) / (a * OSGB_F0);
+			} while ((N - N0 - M) >= 0.001);
+
+			var v = a * OSGB_F0 * Math.pow(1.0 - eSquared * sinSquared(phiPrime), -0.5);
+			var rho = a * OSGB_F0 * (1.0 - eSquared) * Math.pow(1.0 - eSquared * sinSquared(phiPrime), -1.5);
+			var etaSquared = (v / rho) - 1.0;
+			var VII = Math.tan(phiPrime) / (2 * rho * v);
+			var VIII = (Math.tan(phiPrime) / (24.0 * rho * Math.pow(v, 3.0))) * (5.0 + (3.0 * tanSquared(phiPrime)) + etaSquared - (9.0 * tanSquared(phiPrime) * etaSquared));
+			var IX = (Math.tan(phiPrime) / (720.0 * rho * Math.pow(v, 5.0))) * (61.0 + (90.0 * tanSquared(phiPrime)) + (45.0 * tanSquared(phiPrime) * tanSquared(phiPrime)));
+			var X = sec(phiPrime) / v;
+			var XI = (sec(phiPrime) / (6.0 * v * v * v)) * ((v / rho) + (2 * tanSquared(phiPrime)));
+			var XII = (sec(phiPrime) / (120.0 * Math.pow(v, 5.0))) * (5.0 + (28.0 * tanSquared(phiPrime)) + (24.0 * tanSquared(phiPrime) * tanSquared(phiPrime)));
+			var XIIA = (sec(phiPrime) / (5040.0 * Math.pow(v, 7.0))) * (61.0 + (662.0 * tanSquared(phiPrime)) + (1320.0 * tanSquared(phiPrime) * tanSquared(phiPrime)) + (720.0 * tanSquared(phiPrime) * tanSquared(phiPrime) * tanSquared(phiPrime)));
+			phi = phiPrime - (VII * Math.pow(E - E0, 2.0)) + (VIII * Math.pow(E - E0, 4.0)) - (IX * Math.pow(E - E0, 6.0));
+			lambda = lambda0 + (X * (E - E0)) - (XI * Math.pow(E - E0, 3.0)) + (XII * Math.pow(E - E0, 5.0)) - (XIIA * Math.pow(E - E0, 7.0));
+
+			return new LatLng(rad2deg(phi), rad2deg(lambda));
+		}
+		GridRef.prototype.latlon = function(SYS){
+			// If we haven't already calculated the OSGB36 latitude & longitude, we do that now
+			if(!this.osgb36) this.osgb36 = toLatLon(this.easting,this.northing);
+			// Return the OSGB36 latitude and longitude
+			if(SYS == "OSGB36" || SYS == "OS") return [this.osgb36.lat,this.osgb36.lng];
+			// Return the WGS84 latitude and longitude by default
+			return this.osgb36.WGS84();
+		}
+	})();	// Self-closing function
 
 
 
