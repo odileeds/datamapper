@@ -54,9 +54,10 @@
 	});
 	</script>
 	<style>
-	html,body,#mapper {
-		height: 100%;
-	}
+	html,body, .datamapper { height: 100%; }
+	.datamapper { overflow: unset; }
+	.datamapper .map { position: fixed; }
+	.datamapper label.offside { position: fixed; }
 	header { background-image: url('https://odileeds.org/resources/images/odileeds.svg')!important; background-repeat: no-repeat!important; background-position: center center!important; }
 	</style>
 </head>
@@ -70,7 +71,7 @@
 
 		<div class="left">
 			<div class="nolayers padded">
-				<div class="padded bubble-up">Hello! You have an empty map right now but you can add various types of layer on top of it. Some layers we've collated and some are sourced from <a href="https://openstreetmap.org/">Open Street Map</a>, <a href="https://datamillnorth.org/">Data Mill North</a>, <a href="https://dataworks.calderdale.gov.uk/">Calderdale Data Works</a>, or <a href="https://data.gov.uk/">data.gov.uk</a>. Click the "Add" button to find a layer of interest.</div>
+				<div class="padded bubble-up">Hello! You have an empty map right now but you can add various types of layer on top of it. Some layers we've collated and some are sourced from <a href="https://openstreetmap.org/">Open Street Map</a>, <a href="https://datamillnorth.org/">Data Mill North</a>, <a href="https://dataworks.calderdale.gov.uk/">Calderdale Data Works</a>, <a href="https://www.yorkopendata.org/">York Open Data</a>, <a href="https://www.trafforddatalab.io/">Trafford Data Lab</a> or <a href="https://data.gov.uk/">data.gov.uk</a>. Click the "Add" button to find a layer of interest.<br><br><div class="padded s3-bg" style="font-size:0.8em;">Note that this project uses mapping from a variety of sources (e.g. CartoDB) and may load data from external data stores (e.g. Data Mill North and Calderdale Data Works). Those services may store logs about file access.</div></div>
 			</div>
 		</div>
 
