@@ -243,8 +243,8 @@ body.hasmessage .panel:last-child {
 .datamapper .message { background-color: rgb(252,229,173); padding: 1em; position: fixed; z-index: 1000; bottom: 0px; left: 0px; width: 100%; line-height: 1em; text-align: center; display: none; }
 .datamapper.hasmessage .message { display: block; }
 
-.datamapper .add h2, .datamapper .newLayer h2 { font-size: 1.5em; line-height: 1.5em; }
-.datamapper .add input { border: 1px solid #dfdfdf; }
+.datamapper .layer-search h2, .datamapper .newLayer h2 { font-size: 1.5em; line-height: 1.5em; }
+.datamapper .layer-search input { border: 1px solid #dfdfdf; }
 .datamapper .create-layer { background-color: #dfdfdf; line-height: 2em; padding: 0.25em 0.5em; border: 0px; cursor: pointer; width: auto; display: block; color: black; }
 .datamapper .create-layer:hover { background-color: #cccccc; }
 
@@ -310,10 +310,9 @@ body.hasmessage .panel:last-child {
 	transition: transform ease-in 0.3s;
 	overflow: hidden;
 	overflow-y: auto;
-	display: table;
 	vertical-align: middle;
 	text-align: center;
-	display: table;
+	display: block;
 }
 .datamapper .popup.open {
 	-webkit-transform-origin: 50% 50%;
