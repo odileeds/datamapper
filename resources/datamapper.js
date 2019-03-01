@@ -258,6 +258,7 @@
 		// Get the anchor attributes
 		this.getAnchor = function(str){
 			if(!str) str = location.href.split("#")[1];
+			if(!str) str = location.search.split("?")[1];
 			// CHECK
 			if(str && str.indexOf("\/") < 0 && S('#'+str).length == 1){
 				S('#'+str).addClass('open').find('button').focus();
@@ -279,7 +280,7 @@
 				_obj.trackmove = false;
 				this.map.setView({lon:_obj.anchor.longitude,lat:_obj.anchor.latitude},_obj.anchor.zoom);
 			}else{
-				if(S('.datamapper').length == 1 && _obj.pushstate) history.pushState({visible:_obj.visible},"Map","#"+_obj.anchor.str);
+				if(S('.datamapper').length == 1 && _obj.pushstate) history.pushState({visible:_obj.visible},"Map","?"+_obj.anchor.str);
 			}
 			this.updateLayers();
 			return this;
