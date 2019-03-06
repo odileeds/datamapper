@@ -45,6 +45,8 @@
 		if(attr.id) this.id = attr.id;
 		if(attr.src) this.src = attr.src;
 		if(attr.baseMaps) this.baseMaps = attr.baseMaps;
+		this.callbacks = {};
+		if(attr.callbacks) this.callbacks = attr.callbacks;
 
 		var db = new Array();
 		var ids = {};
@@ -166,7 +168,7 @@
 				if(_obj.trackmove) _obj.updateMap();
 				_obj.trackmove = true;
 			});
-			
+
 			if(!this.layersloaded){
 				for(var s = 0; s < this.src.length; s++){
 					S(document).ajax(this.src[s],{
@@ -361,7 +363,7 @@
 		function clearResults(){
 			// Zap search results
 			_obj.target.find('.layer-search .searchresults').html('');
-			return this;			
+			return this;
 		}
 
 		function loadCode(url,callback){
@@ -829,7 +831,7 @@ _obj.log('Lookup',_obj.layerlookup,id,_obj.layerlookup[id])
 				// Update color of layer
 				this.setLayerColours(id);
 				if(!this.layerlookup) this.layerlookup = {};
-this.log('loadLayer',id,this.layerlookup[id],layers,this.layers)
+				this.log('loadLayer',id,this.layerlookup[id],layers,this.layers)
 				if(!this.layerlookup[id]){
 					var el = document.createElement('li');
 					el.setAttribute('class','loading');
@@ -890,7 +892,7 @@ this.log('loadLayer',id,this.layerlookup[id],layers,this.layers)
 						_obj.fitLayer(e.data.id);
 					});
 				}
-this.log('loadLayer2',id,this.layerlookup)
+				this.log('loadLayer2',id,this.layerlookup)
 				if(typeof layers[id].geojson==="object"){
 					this.layerlookup[id].removeClass('loading').find('.loading').remove();
 					if(layers[id]){
@@ -923,6 +925,8 @@ this.log('loadLayer2',id,this.layerlookup)
 								_obj.addLayer(attr.id);
 								_obj.updateMap();
 							}
+							// Once we have successfully got the GeoJSON we call the callback
+							if(typeof _obj.callbacks.layerload==="function") _obj.callbacks.layerload.call(_obj,{'id':attr.id,'layer':layers[attr.id]});
 						},
 						'error': function(e){ _obj.layerlookup[id].find('.loading').html('(failed to load)'); }
 					});
