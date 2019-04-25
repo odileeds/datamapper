@@ -82,7 +82,7 @@
 			this.target.find('.add-layer').on('click',{me:this},function(e){
 				e.data.me.target.find('.layer-search').addClass('open').find('.q').focus();
 				e.data.me.addTopicSearch();
-				e.data.me.layerSearchResults();
+				e.data.me.layerSearchResults("");
 			});
 
 			this.target.find('.layer-search .close').html(getIcon('remove')).on('click',{me:this},function(e){
@@ -185,7 +185,7 @@
 				S(document).ajax(this.topicfile,{
 					'dataType':'json',
 					'this':this,
-					'cache': false,
+					'cache': true,
 					'url': this.topicfile,
 					'success':function(d,attr){
 						if(typeof d=="object"){
@@ -411,7 +411,6 @@
 					// Remove the data
 					this.layers[id].leaflet.remove();
 					delete this.layers[id].leaflet;
-					//delete this.layerlookup[id];
 				}
 			}
 			return this;
@@ -420,6 +419,7 @@
 		this.removeLayer = function(id){
 			this.log.message('removeLayer',id);
 			this.layerlookup[id].remove();
+			delete this.layerlookup[id];
 			this.removeLayerData(id);
 			this.updateMap();
 			return this;
@@ -540,6 +540,7 @@
 				this.setLayerColours(id);
 
 				var customicon = makeMarker(layers[id].colour);
+				var _obj = this;
 
 				// Set a default colour
 				if(!layers[id].colour) layers[id].colour = "#F9BC26";
@@ -547,7 +548,7 @@
 					'style': { "color": layers[id].colour, "weight": 2, "opacity": 0.65 },
 					'pointToLayer': function(geoJsonPoint, latlng){ return L.marker(latlng,{icon: customicon}); },
 					'onEachFeature': function(feature, layer){
-						var popup = popuptext(feature,{'id':id});
+						var popup = popuptext(feature,{'id':id,'this':_obj});
 						if(popup) layer.bindPopup(popup);
 					}
 				};
@@ -862,28 +863,49 @@
 
 		this.addTopicSearch = function(){
 			// Make topics
-			if(typeof this.topics==="object"){
-				if(this.target.find('.layer-search .topics').length < 1) this.target.find('.layer-search form').after('<ul class="topics"></ul>');
+			if(typeof this.topics==="object" && this.target.find('.layer-search .topics').length < 1){
+				this.target.find('.layer-search form').after('<ul class="topics"></ul>');
 				var ul = "";
-				for(var i = 0 ; i < this.topics.length; i++){
-					ul += '<li data="'+i+'" title="Topic: '+this.topics[i].title+'"'+(this.topics[i].colour ? ' style="background-color:'+this.topics[i].colour+';"' : '')+'><a href="#"'+(this.topics[i].colour ? ' style="color:'+setHexTextColor(this.topics[i].colour)+';"' : '')+'><img src="'+this.topics[i].icon+'" alt="Icon for '+this.topics[i].title+'" /><br />'+this.topics[i].title+'</a></li>';
+				var i;
+				// Temporary hack while format changing
+				if(typeof this.topics.length==="undefined"){
+					var temp = JSON.parse(JSON.stringify(this.topics));
+					this.topics = [];
+					for(i in temp) this.topics.push({'title':i,'icon':temp[i]});
 				}
+				for(i = 0 ; i < this.topics.length; i++) ul += '<li data="'+i+'" title="Topic: '+this.topics[i].title+'"'+(this.topics[i].colour ? ' style="background-color:'+this.topics[i].colour+';"' : '')+'><a href="#" class="active"'+(this.topics[i].colour ? ' style="color:'+setHexTextColor(this.topics[i].colour)+';"' : '')+'><img src="'+this.topics[i].icon+'" alt="Icon for '+this.topics[i].title+'" /><br />'+this.topics[i].title+'</a></li>';
 				if(ul) this.target.find('.topics').html(ul);
 				else this.target.find('.topics').remove();
+				S('.topics li a').on('click',{me:this},function(e){
+					var el = S(e.currentTarget);
+					var nactive = e.data.me.target.find('.active').length;
+					if(nactive == 1 && el.hasClass('active')){
+						// This topic is currently the only active one so we select all
+						this.addClass('active');
+						e.data.me.topic = -1;
+					}else{
+						// We want to select only this topic
+						this.removeClass('active');
+						el.addClass('active');
+						e.data.me.topic = parseInt(S(e.currentTarget).parent().attr('data'));
+					}
+					e.data.me.layerSearchResults((e.data.me.searchstring||""));
+				});
 			}
 
 			return this;
 		};
-
+		
 		this.layerSearchResults = function(name){
 			var html = "";
 			var tmp = [];
-			var i,k,idx,dist,n;
-			this.log.message('layerSearchResults',name);
+			var i,k,idx,dist,n,ok,t;
+			this.log.message('layerSearchResults',name,this.topic);
+			this.searchstring = name;
 
 			if(this.target.find('.layer-search .searchresults').length < 1) this.target.find('.layer-search form').after('<div class="searchresults"></div>');
 
-			if(typeof name==="string" && name.length > 0){
+			if(typeof name==="string"){
 				name = name.toLowerCase();
 				var lat = parseFloat(this.anchor.latitude);
 				var lon = parseFloat(this.anchor.longitude);
@@ -893,46 +915,65 @@
 				for(i in layers){
 					if(layers[i]){
 						dist = 100000;
+						ok = true;
+						// Create an empty rank for this layer
 						if(layers[i].name){
+							
 							this.layers[i].rank = 0;
-							idx = layers[i].name.toLowerCase().indexOf(name);
-							if(idx >= 0 && !this.layers[i].active){
-								if(idx==0) this.layers[i].rank += 10;
-								this.layers[i].rank += 1/(Math.abs(layers[i].name.length-name.length)+1);
+
+							// Do we have a topic?
+							if(this.topic >= 0){
+								ok = false;
+								if(typeof layers[i].topics!=="undefined"){
+									for(t in layers[i].topics){
+										if(layers[i].topics[t] == this.topics[this.topic].title){
+											ok = true;
+											this.layers[i].rank = 1;
+										}
+									}
+								}
 							}
-							if(layers[i].desc){
-								idx = layers[i].desc.toLowerCase().indexOf(name);
-								if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
-							}
-							if(layers[i].credit && layers[i].credit.src){
-								idx = layers[i].credit.src.toLowerCase().indexOf(name);
-								if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
-							}
-							if(layers[i].keywords){
-								var kw = layers[i].keywords.split(/,/);
-								for(k = 0; k < kw.length; k++){
-									idx = kw[k].toLowerCase().indexOf(name);
+
+							if(ok){
+								this.layers[i].rank = 0;
+								idx = layers[i].name.toLowerCase().indexOf(name);
+								if(idx >= 0 && !this.layers[i].active){
+									if(idx==0) this.layers[i].rank += 10;
+									this.layers[i].rank += 1/(Math.abs(layers[i].name.length-name.length)+1);
+								}
+								if(layers[i].desc){
+									idx = layers[i].desc.toLowerCase().indexOf(name);
 									if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
 								}
-							}
-							this.layers[i].id = i;
-							if(this.layers[i].rank > 0){
-								if(layers[i].centre && layers[i].centre.length == 2){
-									// Calculate the distance
-									try {
-										dist = p.distanceTo(layers[i].centre);
-									}catch (err){
-				
-									}
-									this.layers[i].rank += Math.min(10,(1000/dist));
+								if(layers[i].credit && layers[i].credit.src){
+									idx = layers[i].credit.src.toLowerCase().indexOf(name);
+									if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
 								}
-								tmp.push(this.layers[i]);
+								if(layers[i].keywords){
+									var kw = layers[i].keywords.split(/,/);
+									for(k = 0; k < kw.length; k++){
+										idx = kw[k].toLowerCase().indexOf(name);
+										if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
+									}
+								}
+								this.layers[i].id = i;
+								if(this.layers[i].rank > 0){
+									if(layers[i].centre && layers[i].centre.length == 2){
+										// Calculate the distance
+										try {
+											dist = p.distanceTo(layers[i].centre);
+										}catch (err){
+					
+										}
+										this.layers[i].rank += Math.min(10,(1000/dist));
+									}
+									tmp.push(this.layers[i]);
+								}
 							}
 						}
 					}
 				}
 				tmp = sortBy(tmp,'rank');
-				//var n = Math.min(tmp.length,8);
 				n = tmp.length;
 			}else{
 
@@ -1135,7 +1176,7 @@
 		var popup = '';
 		var tags,bits;
 		var id = (attr.id||"");
-		if(!id) console.error('No ID provided');
+		if(!id) attr['this'].error('No ID provided');
 		if(feature.properties){
 			// If this feature has a default popup
 			// Convert "other_tags" e.g "\"ele:msl\"=>\"105.8\",\"ele:source\"=>\"GPS\",\"material\"=>\"stone\""
