@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta charset="utf-8" />
+	<title>Data Mapper</title>
+	<script type="text/javascript" src="resources/stuquery.js"></script>
+	<script type="text/javascript" src="resources/leaflet/leaflet.js"></script>
+	<script type="text/javascript" src="resources/datamapper-dev.js"></script>
+	<script type="text/javascript" src="resources/search/datamapper.placesearch.js"></script>
+	<link rel="StyleSheet" href="resources/leaflet/leaflet.css" type="text/css" />
+	<link rel="StyleSheet" href="resources/style.css" type="text/css" />
+	<link rel="StyleSheet" href="resources/datamapper.css" type="text/css" />
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:site" content="@ODILeeds">
+	<meta name="twitter:url" property="og:url" content="https://odileeds.org/projects/mapper/">
+	<meta name="twitter:title" property="og:title" content="ODI Leeds Data Mapper">
+	<meta name="twitter:description" property="og:description" content="Mapping open datasets.">
+	<meta name="twitter:image" property="og:image" content="https://odileeds.org/projects/mapper/mapper.png">
+	<script>
+	var mapper;
+	S(document).ready(function(){
+		baseMaps = 
+		mapper = new DataMapper({
+			'id':'mapper',
+			'baseMaps':{
+				'National Library of Scotland': L.tileLayer('https://geo.nls.uk/maps/os/1inch_2nd_ed/{z}/{x}/{y}.png', {
+					attribution: 'Tiles: &copy; <a href="http://geo.nls.uk/maps/">National Library of Scotland Historic Maps</a>',
+					bounds: [[49.6, -12], [61.7, 3]],
+					minZoom: 1,
+					maxZoom: 18,
+					subdomains: '0123'
+				}),
+				'Esri WorldImagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+					attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+				}),
+				'Hill shading': L.tileLayer('http://{s}.tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png', {
+					maxZoom: 15,
+					attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+				}),
+				'Dark': L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {
+					attribution: 'Tiles: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+					subdomains: 'abcd',
+					maxZoom: 19
+				})
+			},
+			'src':[
+				'layers/layers.json',
+				'https://raw.githubusercontent.com/odileeds/west-yorkshire-mapping/master/data/mapper.json'
+			]
+		});
+		mapper.init();
+		mapper.addPlaceSearch();
+	});
+	</script>
+	<style>
+	html,body, .datamapper { height: 100%; }
+	.datamapper { overflow: unset; }
+	.datamapper .map { position: fixed; }
+	.datamapper label.offside { position: fixed; }
+	header { background-image: url('https://odileeds.org/resources/images/odileeds.svg')!important; background-repeat: no-repeat!important; background-position: center center!important; }
+	</style>
+</head>
+<body>
+
+	<div id="mapper">
+		
+		<header class="b2-bg">
+			<h1>ODI Leeds Data Mapper v0.5</h1>
+		</header>
+
+		<div class="left">
+			<div class="nolayers padded">
+				<div class="padded bubble-up">Hello! You have an empty map right now but you can add various types of layer on top of it. Some layers we've collated and some are sourced from <a href="https://openstreetmap.org/">Open Street Map</a>, <a href="https://datamillnorth.org/">Data Mill North</a>, <a href="https://dataworks.calderdale.gov.uk/">Calderdale Data Works</a>, <a href="https://www.yorkopendata.org/">York Open Data</a>, <a href="https://www.trafforddatalab.io/">Trafford Data Lab</a> or <a href="https://data.gov.uk/">data.gov.uk</a>. Click the "Add" button to find a layer of interest.<br><br><div class="padded s3-bg" style="font-size:0.8em;">Note that this project uses mapping from a variety of sources (e.g. CartoDB) and may load data from external data stores (e.g. Data Mill North and Calderdale Data Works). Those services may store logs about file access.</div></div>
+			</div>
+		</div>
+
+		<div id="splash" class="popup" style="background-color: rgba(0,0,0,0.8);">
+			<div class="centered padded">
+				<div style="display:inline-block;background-color: white;padding:1em 2em;max-width:600px;text-align:center;position:relative;">
+					<h2>ODI Leeds Data Mapper</h2>
+					<p>Developed from a co-creation project with <a href="https://odileeds.org/projects/leeds-urban-commons/">ODI Leeds</a>, the <a href="https://lssi.leeds.ac.uk">University of Leeds</a>, <a href="http://baumanlyons.co.uk/news/updateleeds-love-it-share-it">Leeds Love It Share It</a> and <a href="https://leedscitylab.wordpress.com/">Leeds City Lab</a>. This is a prototype tool developed from <a href="/projects/commonground/">Common Ground</a>.</p>
+					<br/><button>Enter</button>
+				</div>
+			</div>
+		</div>
+
+
+		<div id="message" class="message"></div>
+	</div>
+
+</body>
+</html>
