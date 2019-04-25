@@ -46,8 +46,10 @@
 			},
 			'src':[
 				'layers/layers.json',
-				'https://raw.githubusercontent.com/odileeds/west-yorkshire-mapping/master/data/mapper.json'
-			]
+				'https://raw.githubusercontent.com/odileeds/west-yorkshire-mapping/master/data/mapper.json',
+				'https://raw.githubusercontent.com/XX-Blue-XX/Common-Ground-Map/master/data/index.json'
+			],
+			'topics': 'https://raw.githubusercontent.com/XX-Blue-XX/Common-Ground-Map/master/topics.json'
 		});
 		mapper.init();
 		mapper.addPlaceSearch();
@@ -58,6 +60,32 @@
 	.datamapper { overflow: unset; }
 	.datamapper .map { position: fixed; }
 	.datamapper label.offside { position: fixed; }
+	.datamapper .topics li { display: inline-block; width: 33%; }
+	.datamapper .topics {
+		overflow: hidden;
+		display: block;
+		position: relative;
+		margin-left: -1em;
+		right: -1em;
+		list-style: none;
+		min-width: 100%;
+	}
+	.datamapper .topics > li {
+		display: inline-block;
+		float: left;
+		vertical-align: top;
+		width: 33.3333%;
+		border-right: 1em solid rgba(255,255,255,0);
+	}
+	.datamapper .topics > li a { background-color: rgba(0,0,0,0.7); color: white; }
+	.datamapper .topics > li > a {
+		padding: 1em;
+		display: block;
+		text-decoration: none;
+		transition: background-color 0.3s ease-in, color 0.3s ease-in;
+	}
+	.datamapper .topics > li > a > img { max-width: 100%; }
+	.datamapper .topics + * { clear: both; margin-top: 1em; }
 	header { background-image: url('https://odileeds.org/resources/images/odileeds.svg')!important; background-repeat: no-repeat!important; background-position: center center!important; }
 	</style>
 </head>

@@ -2,51 +2,20 @@
 
 	var layers = {};
 
-	function setHexTextColor(hex){
-		var L1 = getL(hex);
-		var Lb = getL('#000000');
-		var Lw = getL('#ffffff');
-		var rb = (Math.max(L1, Lb) + 0.05) / (Math.min(L1, Lb) + 0.05);
-		var rw = (Math.max(L1, Lw) + 0.05) / (Math.min(L1, Lw) + 0.05);
-		return (rb > rw ? '#000000':'#FFFFFF');
-	}
-
-	function getL(c) {
-		return (0.2126 * getsRGB(c.substr(1, 2)) + 0.7152 * getsRGB(c.substr(3, 2)) + 0.0722 * getsRGB(c.substr(-2)));
-	}
-
-	function getRGB(c) {
-		try { c = parseInt(c, 16); } catch (err) { c = false; }
-		return c;
-	}
-
-	function getsRGB(c) {
-		c = getRGB(c) / 255;
-		c = (c <= 0.03928) ? c / 12.92 : Math.pow(((c + 0.055) / 1.055), 2.4);
-		return c;
-	}
-
-	function makeMarker(colour){
-		return L.divIcon({
-			'className': '',
-			'html':	'<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" width="7.0556mm" height="11.571mm" viewBox="0 0 25 41.001" id="svg2" version="1.1"><g id="layer1" transform="translate(1195.4,216.71)"><path style="fill:%COLOUR%;fill-opacity:1;fill-rule:evenodd;stroke:#ffffff;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none" d="M 12.5 0.5 A 12 12 0 0 0 0.5 12.5 A 12 12 0 0 0 1.8047 17.939 L 1.8008 17.939 L 12.5 40.998 L 23.199 17.939 L 23.182 17.939 A 12 12 0 0 0 24.5 12.5 A 12 12 0 0 0 12.5 0.5 z " transform="matrix(1,0,0,1,-1195.4,-216.71)" id="path4147" /><ellipse style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.428;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" id="path4173" cx="-1182.9" cy="-204.47" rx="5.3848" ry="5.0002" /></g></svg>'.replace(/%COLOUR%/,colour||"#000000"),
-			iconSize:	 [25, 41], // size of the icon
-			shadowSize:	 [41, 41], // size of the shadow
-			iconAnchor:	 [12.5, 41], // point of the icon which will correspond to marker's location
-			shadowAnchor: [12.5, 41],	// the same for the shadow
-			popupAnchor:	[0, -41] // point from which the popup should open relative to the iconAnchor
-		});
-	}
-
 	function DataMapper(attr){
 		if(!attr) attr = {};
 
 		this.src = ['https://www.imactivate.com/urbancommons/getLayers.php'];
-		this.title = "ODI Leeds Data Mapper";
+		this.topicfile = "";
+		this.name = "Data Mapper";
 		this.version = "v0.6";
+		this.title = (attr.title || this.name);
+		
+		console.log('%c'+this.name+' '+this.version+'%c','font-weight:bold;font-size:1.25em;','');
 
 		if(attr.id) this.id = attr.id;
 		if(attr.src) this.src = attr.src;
+		if(attr.topics) this.topicfile = attr.topics;
 		if(attr.baseMaps) this.baseMaps = attr.baseMaps;
 		this.callbacks = {};
 		if(attr.callbacks) this.callbacks = attr.callbacks;
@@ -65,7 +34,7 @@
 		this.mapel = null;
 		this.layerlookup = {};
 		this.events = {};
-		this.logging = true;
+		this.logging = (location.search.indexOf("logging=true") >= 0 ? true : false);
 		this.layers = {};
 		
 		// Do we update the address bar?
@@ -112,7 +81,8 @@
 
 			this.target.find('.add-layer').on('click',{me:this},function(e){
 				e.data.me.target.find('.layer-search').addClass('open').find('.q').focus();
-				processResult();
+				e.data.me.addTopicSearch();
+				e.data.me.layerSearchResults();
 			});
 
 			this.target.find('.layer-search .close').html(getIcon('remove')).on('click',{me:this},function(e){
@@ -149,7 +119,7 @@
 					// Need to load the data file for the first letter
 					var name = this.e[0].value.toLowerCase();
 					//var fl = name[0];
-					processResult(name);
+					e.data.me.layerSearchResults(name);
 					//if(name == "") clearResults();
 				}
 			});
@@ -211,6 +181,24 @@
 				}
 			}
 			
+			if(this.topicfile){
+				S(document).ajax(this.topicfile,{
+					'dataType':'json',
+					'this':this,
+					'cache': false,
+					'url': this.topicfile,
+					'success':function(d,attr){
+						if(typeof d=="object"){
+							this.log.message('Got topics',d);
+							this.topics = d;
+						}
+					},
+					'error':function(e,attr){
+						this.log.error("Couldn't load topics from "+attr.url);
+					}
+				});
+			}
+			
 			this.trigger('init');
 
 			return this;
@@ -270,7 +258,7 @@
 		// Get the anchor attributes
 		this.getAnchor = function(str){
 			if(!str) str = location.href.split("#")[1];
-			if(!str) str = location.search.split("?")[1];
+			if(!str) str = location.search.replace(/\&.*$/g,"").split("?")[1];
 			// CHECK
 			if(str && str.indexOf("\/") < 0 && S('#'+str).length == 1){
 				S('#'+str).addClass('open').find('button').focus();
@@ -367,7 +355,7 @@
 
 		function loadCode(url,attr,callback){
 			var el;
-			_obj.log.info('loadCode',url);
+			_obj.log.message('loadCode',url);
 			if(url.indexOf(".js")>= 0){
 				el = document.createElement("script");
 				el.setAttribute('type',"text/javascript");
@@ -552,12 +540,16 @@
 				this.setLayerColours(id);
 
 				var customicon = makeMarker(layers[id].colour);
+
 				// Set a default colour
 				if(!layers[id].colour) layers[id].colour = "#F9BC26";
 				var geoattrs = {
 					'style': { "color": layers[id].colour, "weight": 2, "opacity": 0.65 },
-					'pointToLayer': function(geoJsonPoint, latlng) { return L.marker(latlng,{icon: customicon}); },
-					'onEachFeature': onEachFeature
+					'pointToLayer': function(geoJsonPoint, latlng){ return L.marker(latlng,{icon: customicon}); },
+					'onEachFeature': function(feature, layer){
+						var popup = popuptext(feature,{'id':id});
+						if(popup) layer.bindPopup(popup);
+					}
 				};
 				// Is this a chloropleth layer?
 				// If it is we work out the scale and then change the style to a function
@@ -868,27 +860,33 @@
 			return this;
 		};
 
-		function niceSize(b){
-			if(b > 1e12) return (b/1e12).toFixed(1)+" TB";
-			if(b > 1e9) return (b/1e9).toFixed(1)+" GB";
-			if(b > 1e6) return (b/1e6).toFixed(1)+" MB";
-			if(b > 1e3) return (b/1e3).toFixed(1)+" kB";
-			return (b)+" bytes";
-		}
+		this.addTopicSearch = function(){
+			// Make topics
+			if(typeof this.topics==="object"){
+				if(this.target.find('.layer-search .topics').length < 1) this.target.find('.layer-search form').after('<ul class="topics"></ul>');
+				var ul = "";
+				for(var i = 0 ; i < this.topics.length; i++){
+					ul += '<li data="'+i+'" title="Topic: '+this.topics[i].title+'"'+(this.topics[i].colour ? ' style="background-color:'+this.topics[i].colour+';"' : '')+'><a href="#"'+(this.topics[i].colour ? ' style="color:'+setHexTextColor(this.topics[i].colour)+';"' : '')+'><img src="'+this.topics[i].icon+'" alt="Icon for '+this.topics[i].title+'" /><br />'+this.topics[i].title+'</a></li>';
+				}
+				if(ul) this.target.find('.topics').html(ul);
+				else this.target.find('.topics').remove();
+			}
 
-		
-		function processResult(name){
+			return this;
+		};
+
+		this.layerSearchResults = function(name){
 			var html = "";
 			var tmp = [];
 			var i,k,idx,dist,n;
-			_obj.log.message('processResult',name);
+			this.log.message('layerSearchResults',name);
 
-			if(_obj.target.find('.layer-search .searchresults').length < 1) _obj.target.find('.layer-search form').after('<div class="searchresults"></div>');
+			if(this.target.find('.layer-search .searchresults').length < 1) this.target.find('.layer-search form').after('<div class="searchresults"></div>');
 
 			if(typeof name==="string" && name.length > 0){
 				name = name.toLowerCase();
-				var lat = parseFloat(_obj.anchor.latitude);
-				var lon = parseFloat(_obj.anchor.longitude);
+				var lat = parseFloat(this.anchor.latitude);
+				var lon = parseFloat(this.anchor.longitude);
 				var p = L.latLng(lat,lon);
 
 				// Loop over layers and work out a ranking
@@ -896,29 +894,29 @@
 					if(layers[i]){
 						dist = 100000;
 						if(layers[i].name){
-							_obj.layers[i].rank = 0;
+							this.layers[i].rank = 0;
 							idx = layers[i].name.toLowerCase().indexOf(name);
-							if(idx >= 0 && !_obj.layers[i].active){
-								if(idx==0) _obj.layers[i].rank += 10;
-								_obj.layers[i].rank += 1/(Math.abs(layers[i].name.length-name.length)+1);
+							if(idx >= 0 && !this.layers[i].active){
+								if(idx==0) this.layers[i].rank += 10;
+								this.layers[i].rank += 1/(Math.abs(layers[i].name.length-name.length)+1);
 							}
 							if(layers[i].desc){
 								idx = layers[i].desc.toLowerCase().indexOf(name);
-								if(idx >= 0 && !_obj.layers[i].active) _obj.layers[i].rank++;
+								if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
 							}
 							if(layers[i].credit && layers[i].credit.src){
 								idx = layers[i].credit.src.toLowerCase().indexOf(name);
-								if(idx >= 0 && !_obj.layers[i].active) _obj.layers[i].rank++;
+								if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
 							}
 							if(layers[i].keywords){
 								var kw = layers[i].keywords.split(/,/);
 								for(k = 0; k < kw.length; k++){
 									idx = kw[k].toLowerCase().indexOf(name);
-									if(idx >= 0 && !_obj.layers[i].active) _obj.layers[i].rank++;
+									if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
 								}
 							}
-							_obj.layers[i].id = i;
-							if(_obj.layers[i].rank > 0){
+							this.layers[i].id = i;
+							if(this.layers[i].rank > 0){
 								if(layers[i].centre && layers[i].centre.length == 2){
 									// Calculate the distance
 									try {
@@ -926,9 +924,9 @@
 									}catch (err){
 				
 									}
-									_obj.layers[i].rank += Math.min(10,(1000/dist));
+									this.layers[i].rank += Math.min(10,(1000/dist));
 								}
-								tmp.push(_obj.layers[i]);
+								tmp.push(this.layers[i]);
 							}
 						}
 					}
@@ -940,17 +938,17 @@
 
 				// Loop over layers and work out a ranking
 				for(i in layers){
-					if(layers[i].name && !_obj.layers[i].active){
-						_obj.layers[i].id = i;
-						_obj.layers[i].namelc = layers[i].name.toLowerCase();
-						tmp.push(_obj.layers[i]);
+					if(layers[i].name && !this.layers[i].active){
+						this.layers[i].id = i;
+						this.layers[i].namelc = layers[i].name.toLowerCase();
+						tmp.push(this.layers[i]);
 					}
 				}
 				tmp = sortBy(tmp,'namelc',true);
 				n = tmp.length;
 			}
 			if(tmp.length > 0){
-				_obj.target.find('.layer-search .searchresults li').off('click');
+				this.target.find('.layer-search .searchresults li').off('click');
 				html = "<ol>";
 				var l,tcredit;
 				for(i = 0; i < n; i++){
@@ -960,17 +958,17 @@
 				}
 				html += "</ol>";
 			}
-			_obj.target.find('.layer-search .searchresults').html(html);
-			var li = _obj.target.find('.layer-search .searchresults li a');
+			this.target.find('.layer-search .searchresults').html(html);
+			var li = this.target.find('.layer-search .searchresults li a');
 			for(i = 0 ; i < li.e.length ; i++){
-				S(li.e[i]).on('click',{"callback":selectName,"me":_obj},function(e){
+				S(li.e[i]).on('click',{"callback":selectName,"me":this},function(e){
 					e.preventDefault();
 					e.data.callback.call(e.data.me,{'selected':this.parent()});
 				});
 			}
 
-			return;
-		}
+			return this;
+		};
 
 		function getIcon(icon,colour){
 			var icons = {
@@ -1064,6 +1062,51 @@
 		return (phi2);
 	}
 
+
+	function niceSize(b){
+		if(b > 1e12) return (b/1e12).toFixed(1)+" TB";
+		if(b > 1e9) return (b/1e9).toFixed(1)+" GB";
+		if(b > 1e6) return (b/1e6).toFixed(1)+" MB";
+		if(b > 1e3) return (b/1e3).toFixed(1)+" kB";
+		return (b)+" bytes";
+	}
+	
+	function setHexTextColor(hex){
+		var L1 = getL(hex);
+		var Lb = getL('#000000');
+		var Lw = getL('#ffffff');
+		var rb = (Math.max(L1, Lb) + 0.05) / (Math.min(L1, Lb) + 0.05);
+		var rw = (Math.max(L1, Lw) + 0.05) / (Math.min(L1, Lw) + 0.05);
+		return (rb > rw ? '#000000':'#FFFFFF');
+	}
+
+	function getL(c) {
+		return (0.2126 * getsRGB(c.substr(1, 2)) + 0.7152 * getsRGB(c.substr(3, 2)) + 0.0722 * getsRGB(c.substr(-2)));
+	}
+
+	function getRGB(c) {
+		try { c = parseInt(c, 16); } catch (err) { c = false; }
+		return c;
+	}
+
+	function getsRGB(c) {
+		c = getRGB(c) / 255;
+		c = (c <= 0.03928) ? c / 12.92 : Math.pow(((c + 0.055) / 1.055), 2.4);
+		return c;
+	}
+
+	function makeMarker(colour){
+		return L.divIcon({
+			'className': '',
+			'html':	'<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" width="7.0556mm" height="11.571mm" viewBox="0 0 25 41.001" id="svg2" version="1.1"><g id="layer1" transform="translate(1195.4,216.71)"><path style="fill:%COLOUR%;fill-opacity:1;fill-rule:evenodd;stroke:#ffffff;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none" d="M 12.5 0.5 A 12 12 0 0 0 0.5 12.5 A 12 12 0 0 0 1.8047 17.939 L 1.8008 17.939 L 12.5 40.998 L 23.199 17.939 L 23.182 17.939 A 12 12 0 0 0 24.5 12.5 A 12 12 0 0 0 12.5 0.5 z " transform="matrix(1,0,0,1,-1195.4,-216.71)" id="path4147" /><ellipse style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.428;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" id="path4173" cx="-1182.9" cy="-204.47" rx="5.3848" ry="5.0002" /></g></svg>'.replace(/%COLOUR%/,colour||"#000000"),
+			iconSize:	 [25, 41], // size of the icon
+			shadowSize:	 [41, 41], // size of the shadow
+			iconAnchor:	 [12.5, 41], // point of the icon which will correspond to marker's location
+			shadowAnchor: [12.5, 41],	// the same for the shadow
+			popupAnchor:	[0, -41] // point from which the popup should open relative to the iconAnchor
+		});
+	}
+
 	function clearResults(me){
 		// Zap search results
 		me.target.find('.layer-search .searchresults').html('');
@@ -1146,12 +1189,6 @@
 			popup = popup.replace(/%[^\%]+%/g,"?");
 		}
 		return popup;
-	}
-
-	function onEachFeature(feature, layer) {
-		console.warn('onEachFeature',feature,layer);
-		var popup = popuptext(feature,{});
-		if(popup) layer.bindPopup(popup);
 	}
 
 	//--------------------------------------------------
