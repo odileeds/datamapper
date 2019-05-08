@@ -8,7 +8,7 @@
 		this.src = ['https://www.imactivate.com/urbancommons/getLayers.php'];
 		this.topicfile = "";
 		this.name = "Data Mapper";
-		this.version = "v0.6";
+		this.version = "v0.7";
 		this.title = (attr.title || this.name);
 		
 		console.log('%c'+this.name+' '+this.version+'%c','font-weight:bold;font-size:1.25em;','');
@@ -17,6 +17,7 @@
 		if(attr.src) this.src = attr.src;
 		if(attr.topics) this.topicfile = attr.topics;
 		if(attr.baseMaps) this.baseMaps = attr.baseMaps;
+		else this.baseMaps = {};
 		this.callbacks = {};
 		if(attr.callbacks) this.callbacks = attr.callbacks;
 
@@ -36,6 +37,7 @@
 		this.events = {};
 		this.logging = (location.search.indexOf("logging=true") >= 0 ? true : false);
 		this.layers = {};
+		this.log = new Logger({'id':this.title,'logging':this.logging});
 		
 		// Do we update the address bar?
 		this.pushstate = !!(window.history && history.pushState);
@@ -49,6 +51,8 @@
 			}
 			return popup;
 		}
+
+
 
 		this.init = function(){
 
@@ -174,8 +178,8 @@
 								this.finishLoadingLayers();
 							}
 						},
-						'error':function(e){
-							this.log.error("Couldn't load",e);
+						'error':function(e,attr){
+							this.log.error("Couldn't load "+attr.url,e);
 						}
 					});
 				}
@@ -258,7 +262,7 @@
 		// Get the anchor attributes
 		this.getAnchor = function(str){
 			if(!str) str = location.href.split("#")[1];
-			if(!str) str = location.search.replace(/\&.*$/g,"").split("?")[1];
+			if(!str) str = location.search.replace(/logging=true/,"").replace(/\&.*$/g,"").split("?")[1];
 			// CHECK
 			if(str && str.indexOf("\/") < 0 && S('#'+str).length == 1){
 				S('#'+str).addClass('open').find('button').focus();
@@ -285,8 +289,6 @@
 			this.updateLayers();
 			return this;
 		};
-
-		this.log = new Logger({'id':this.title,'logging':this.logging});
 
 		this.updateLayers = function(){
 			this.log.message('updateLayers');
