@@ -156,22 +156,24 @@ body.hasmessage .panel:last-child {
 .datamapper .placesearch.typing .searchresults a { border: 0px; width: 100%; height: auto; text-align: left; }
 .datamapper .placesearch.typing .pop-left { display: inline-block; position: relative; top: 0px; right: 0px; }
 .datamapper .padding-small { padding: 0.25em 0.5em; }
+.datamapper .layer-search form { position: relative; }
 .datamapper .layer-search input[type="submit"], .datamapper .layer-search button.submit {
 	width: auto;
-	float: right;
+	position: absolute;
 	border: 0px;
 	width: 3.5em;
 	height: 3em;
+	float: right;
 	background: transparent;
 	background-image: url(search.svg);
 	background-position: center center;
 	background-repeat: no-repeat;
 	margin: 0em;
 	background-size: 1.5em;
-	top: -3em;
-	position: relative;
+	z-index: 2;
 	right: 0em;
 }
+
 .datamapper .layersearch button.submit {
 	width: 4em;
 	background-color: white;

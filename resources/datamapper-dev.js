@@ -64,7 +64,7 @@
 			}
 			if(this.target.find('.left .layers').length == 0) this.target.find('.left').prepend('<menu class="panel layers"><div class="panel-inner"><button class="add-layer add">&plus; Add</button><h2>Layers</h2><ul id="layers-list"></ul></div></menu>');
 			if(this.target.find('.left .map').length == 0) this.target.append('<div class="map"><div id="tooltip"></div></div>');
-			if(this.target.find('.left .layer-search').length == 0) this.target.append('<div class="layer-search popup"><button class="close" title="Close"></button><div class="padded inner"><h2>Add a layer</h2><form action="/search/" method="GET"><input class="q" name="q" value="" type="text" placeholder="To search the layers start typing here" autocomplete="off"><input value="" class="b6-bg" type="submit"></form></div></div>');
+			if(this.target.find('.left .layer-search').length == 0) this.target.append('<div class="layer-search popup"><button class="close" title="Close"></button><div class="padded inner"><h2>Add a layer</h2><form action="/search/" method="GET"><input value="" class="b6-bg" type="submit"><input class="q" name="q" value="" type="text" placeholder="To search the layers start typing here" autocomplete="off"></form></div></div>');
 
 			// Add events
 			this.target.find('.layer-search form').on('submit',function(e){
@@ -873,7 +873,7 @@
 					this.topics = [];
 					for(i in temp) this.topics.push({'title':i,'icon':temp[i]});
 				}
-				for(i = 0 ; i < this.topics.length; i++) ul += '<li data="'+i+'" title="Topic: '+this.topics[i].title+'"'+(this.topics[i].colour ? ' style="background-color:'+this.topics[i].colour+';"' : '')+'><a href="#" class="active"'+(this.topics[i].colour ? ' style="color:'+setHexTextColor(this.topics[i].colour)+';"' : '')+'><img src="'+this.topics[i].icon+'" alt="Icon for '+this.topics[i].title+'" /><br />'+this.topics[i].title+'</a></li>';
+				for(i = 0 ; i < this.topics.length; i++) ul += '<li data="'+i+'" title="Topic: '+this.topics[i].title+'"><a href="#" class="active" style="'+(this.topics[i].colour ? 'color:'+setHexTextColor(this.topics[i].colour)+';' : '')+(this.topics[i].colour ? 'background-color:'+this.topics[i].colour+';' : '')+'"><img src="'+this.topics[i].icon+'" alt="Icon for '+this.topics[i].title+'" /><br />'+this.topics[i].title+'</a></li>';
 				if(ul) this.target.find('.topics').html(ul);
 				else this.target.find('.topics').remove();
 				S('.topics li a').on('click',{me:this},function(e){

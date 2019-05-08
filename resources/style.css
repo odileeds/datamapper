@@ -95,13 +95,14 @@ pre.prettyprint {
 	overflow: hidden;
 	display: block;
 	position: relative;
-	margin-left: -1em;
+	margin: 1em 0 -1em -1em;
 	right: -1em;
 	list-style: none;
 	min-width: 100%;
-	margin-bottom: -1em;
+	vertical-align: top;
 }
-.datamapper .topics li {
+.datamapper .topics + * { clear: both; margin-top: 1em; }
+.datamapper .topics > li {
 	display: inline-block;
 	float: left;
 	vertical-align: top;
@@ -109,7 +110,7 @@ pre.prettyprint {
 	margin-bottom: 1em;
 	border-right: 1em solid rgba(255,255,255,0);
 }
-.datamapper .topics li a {
+.datamapper .topics > li > a {
 	background-color: rgba(0,0,0,0.7);
 	color: white;
 	padding: 1em;
@@ -118,6 +119,5 @@ pre.prettyprint {
 	transition: background-color 0.3s ease-in, color 0.3s ease-in;
 	opacity: 0.2;
 }
-.datamapper .topics li a.active { opacity: 1; }
-.datamapper .topics li a img { max-width: 100%; }
-.datamapper .topics + * { clear: both; margin-top: 1em; }
+.datamapper .topics > li > a.active { opacity: 1; }
+.datamapper .topics > li > a > img { max-width: 100%; }
