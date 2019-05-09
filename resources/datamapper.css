@@ -507,6 +507,7 @@ header { z-index: 1000; }
 	width: 33.3333%;
 	margin-bottom: 1em;
 	border-right: 1em solid rgba(255,255,255,0);
+	opacity: 0.2;
 }
 .datamapper .topics > li > a {
 	background-color: rgba(0,0,0,0.3);
@@ -515,9 +516,11 @@ header { z-index: 1000; }
 	display: block;
 	text-decoration: none;
 	transition: background-color 0.3s ease-in, color 0.3s ease-in;
-	opacity: 0.2;
+	line-height: 1em;
 }
-.datamapper .topics > li > a.active { opacity: 1; }
+.datamapper .topics > li { opacity: 1; }
+.datamapper .topics > li.active { width: 100%; }
+.datamapper .topics > li.inactive { display: none; }
 .datamapper .topics > li > a > img { max-width: 100%; max-height: 50px; }
 
 @media only screen and (max-width: 960px) {
@@ -548,8 +551,10 @@ header { z-index: 1000; }
 		transition: margin-left 0.3s ease-in;
 		border-left: 1px #2f529f solid;
 	}
+	.datamapper .topics > li { width: 50%; }
 }
 
 @media only screen and (max-width: 600px) {
 	.datamapper header { background-image: none!important; }
+	.datamapper .topics > li { width: 100%; }
 }

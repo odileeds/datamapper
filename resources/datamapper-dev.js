@@ -10,7 +10,7 @@
 		this.name = "Data Mapper";
 		this.version = "v0.7";
 		this.title = (attr.title || this.name);
-		
+
 		console.log('%c'+this.name+' '+this.version+'%c','font-weight:bold;font-size:1.25em;','');
 
 		if(attr.id) this.id = attr.id;
@@ -312,7 +312,7 @@
 						this.toggleLayer(id);
 					}
 					this.log.message('layers',layers[id],this.layers[id]);
-					
+
 					if(this.layers[id].active) credits[getCredit(layers[id],"text")] = true;
 
 					// Update layer properties
@@ -866,7 +866,7 @@
 		this.addTopicSearch = function(){
 			// Make topics
 			if(typeof this.topics==="object" && this.target.find('.layer-search .topics').length < 1){
-				this.target.find('.layer-search form').after('<ul class="topics"></ul>');
+				this.target.find('.layer-search form').before('<ul class="topics"></ul>');
 				var ul = "";
 				var i;
 				// Temporary hack while format changing
@@ -875,20 +875,21 @@
 					this.topics = [];
 					for(i in temp) this.topics.push({'title':i,'icon':temp[i]});
 				}
-				for(i = 0 ; i < this.topics.length; i++) ul += '<li data="'+i+'" title="Topic: '+this.topics[i].title+'"><a href="#" class="active" style="'+(this.topics[i].colour ? 'color:'+setHexTextColor(this.topics[i].colour)+';' : '')+(this.topics[i].colour ? 'background-color:'+this.topics[i].colour+';' : '')+'"><img src="'+this.topics[i].icon+'" alt="Icon for '+this.topics[i].title+'" /><br />'+this.topics[i].title+'</a></li>';
+				for(i = 0 ; i < this.topics.length; i++) ul += '<li data="'+i+'" class="" title="Topic: '+this.topics[i].title+'"><a href="#" style="'+(this.topics[i].colour ? 'color:'+setHexTextColor(this.topics[i].colour)+';' : '')+(this.topics[i].colour ? 'background-color:'+this.topics[i].colour+';' : '')+'"><img src="'+this.topics[i].icon+'" alt="Icon for '+this.topics[i].title+'" /><br />'+this.topics[i].title+'</a></li>';
 				if(ul) this.target.find('.topics').html(ul);
 				else this.target.find('.topics').remove();
 				S('.topics li a').on('click',{me:this},function(e){
 					var el = S(e.currentTarget);
-					var nactive = e.data.me.target.find('.active').length;
-					if(nactive == 1 && el.hasClass('active')){
+					var inactive = e.data.me.target.find('.inactive').length;
+					if(el.parent().hasClass('active')){
 						// This topic is currently the only active one so we select all
-						this.addClass('active');
+						el.parent().removeClass('active');
+						this.parent().removeClass('inactive');
 						e.data.me.topic = -1;
 					}else{
 						// We want to select only this topic
-						this.removeClass('active');
-						el.addClass('active');
+						this.parent().addClass('inactive');
+						el.parent().addClass('active').removeClass('inactive');
 						e.data.me.topic = parseInt(S(e.currentTarget).parent().attr('data'));
 					}
 					e.data.me.layerSearchResults((e.data.me.searchstring||""));
