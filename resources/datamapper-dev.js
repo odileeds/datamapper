@@ -646,7 +646,6 @@
 					// If we have explicitly set the key, use that
 					if(layers[id].format.key) key = layers[id].format.key;
 
-					layers[id]._attr = (this.anchor.layers[id]||{});
 					layers[id]._attr.key = key;
 					
 					for(i = 0; i < layers[id].data.features.length; i++){
