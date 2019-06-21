@@ -606,7 +606,7 @@
 				if(!layers[id].colour) layers[id].colour = "#F9BC26";
 
 				layers[id].originalcolour = layers[id].colour;
-				layers[id]._attr = this.anchor.layers[id] || {};
+				layers[id]._attr = (this.anchor.layers && this.anchor.layers[id] ? this.anchor.layers[id] : {});
 				if(layers[id]._attr && layers[id]._attr.colour) layers[id].colour = '#'+layers[id]._attr.colour;
 				if(layers[id]._attr && layers[id]._attr.color) layers[id].colour = '#'+layers[id]._attr.color;
 				
