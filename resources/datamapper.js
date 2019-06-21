@@ -8,7 +8,7 @@
 		this.src = ['https://www.imactivate.com/urbancommons/getLayers.php'];
 		this.topicfile = "";
 		this.name = "Data Mapper";
-		this.version = "v0.7";
+		this.version = "v0.8";
 		this.title = (attr.title || this.name);
 
 		console.log('%c'+this.name+' '+this.version+'%c','font-weight:bold;font-size:1.25em;','');
@@ -261,6 +261,7 @@
 
 		// Get the anchor attributes
 		this.getAnchor = function(str){
+			var id,a,l,i,attr;
 			if(!str) str = location.href.split("#")[1];
 			if(!str) str = location.search.replace(/logging=true/,"").replace(/\&.*$/g,"").split("?")[1];
 			// CHECK
@@ -268,14 +269,55 @@
 				S('#'+str).addClass('open').find('button').focus();
 				return this;
 			}
-			var a = (str) ? str.split('/') : [13,53.79659,-1.53385];
+			a = (str) ? str.split('/') : [13,53.79659,-1.53385];
+			if(!this.anchor) this.anchor = {};
+			this.anchor.latitude = a[1];
+			this.anchor.zoom = a[0];
+			this.anchor.longitude = a[2];
+			this.anchor.str = str;
 			if(a[3]){
-				var l = a[3].split(';');
-				for(var i = 0; i < l.length; i++) _obj.loadLayer(l[i]);
+				l = a[3].split(';');
+				for(i = 0; i < l.length; i++){
+					attr = "";
+					l[i] = l[i].replace(/\{(.*)\}$/g,function(m,p1){ attr = p1; return ""; });
+					if(attr){
+						if(!this.anchor.layers) this.anchor.layers = {};
+						this.anchor.layers[l[i]] = this.getProps(attr);
+					}
+					_obj.loadLayer(l[i]);
+				}
 			}
-			this.anchor = {'latitude':a[1],'zoom':a[0],'longitude':a[2],'str':str};
 			return this;
 		};
+		
+		this.getProps = function(str){
+			var i,p,out,pairs;
+			// Define acceptable property keys
+			var ok = {'colour':true,'color':true,'key':true};
+			pairs = decodeURI(str).split(/\,/);
+			if(typeof pairs==="string") pairs = [pairs];
+			out = {'_original':str};
+			for(i = 0; i < pairs.length; i++){
+				p = pairs[i].split(/:/);
+				// Only allow acceptable keys
+				if(ok[p[0]]) out[p[0]] = p[1];
+			}
+			return out;
+		}
+
+		this.getPropsString = function(a){
+			var str = "";
+			if(this.anchor.layers && this.anchor.layers[a]){
+				for(var key in this.anchor.layers[a]){
+					if(key[0] != "_"){
+						if(str) str += ',';
+						str += key+':'+this.anchor.layers[a][key];
+					}
+				}
+			}
+			if(str) str = '{'+str+'}';
+			return str;
+		}
 
 		// Work out where we are based on the anchor tag
 		this.moveMap = function(e,a){
@@ -294,7 +336,7 @@
 			this.log.message('updateLayers');
 			var ls = this.target.find('.layers li');
 			this.log.message('updateLayers',ls);
-			var el,i,c,id;
+			var el,i,c,id,title;
 			var credits = {};
 			var attrib = "";
 			for(i = 0; i < ls.length; i++){
@@ -315,8 +357,22 @@
 
 					if(this.layers[id].active) credits[getCredit(layers[id],"text")] = true;
 
+					this.updateTitle(id);
+
 					// Update layer properties
-					el.find('.heading').html(layers[id] ? layers[id].name||id : id);
+					if(layers[id].format && layers[id].format.keys){
+						var opt = '';
+						if(layers[id].format && layers[id].format.keys){
+							for(var k in layers[id].format.keys) opt += '<option value="'+layers[id].format.keys[k]+'"'+(layers[id]._attr && layers[id]._attr.key==layers[id].format.keys[k] ? ' selected="selected"':'')+'>'+layers[id].format.keys[k]+'</option>';
+						}
+						// Add the HTML to the page
+						el.find('.description .keys').html('<select>'+opt+'</select>');
+						// Add an event to the <select>
+						el.find('.description .keys select').on('change',{id:id,me:this},function(e){
+							layers[e.data.id].format.key = e.currentTarget.value;
+							e.data.me.addLayer(e.data.id);
+						})
+					}
 					el.find('.description .padding').html((layers[id].desc || '')+(layers[id].owner == "osm" ? '<br /><br />This data set comes from Open Street Map - a map built by citizens. If something is not quite right you can help <a href="https://openstreetmap.org/edit?pk_campaign=odileeds-edit">improve the map</a>.':'')+'<p class="credit"><a href="'+(layers[id].url || "")+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p>'+(layers[id].date ? '<p>Last updated: '+layers[id].date+'</p>':''));
 					el.find('.description .download').html((typeof layers[id].geojson === "string" ? '<a href="'+layers[id].geojson+'" class="button">Download (GeoJSON'+(layers[id].size ? ' '+niceSize(layers[id].size) : '')+')</a>' : ''));
 					// Update color of layer
@@ -344,7 +400,7 @@
 			for(var a in this.visible){
 				if(this.visible[a]){
 					if(s) s += ';';
-					s += a;
+					s += a+this.getPropsString(a);
 					i++;
 				}
 			}
@@ -516,6 +572,11 @@
 
 		this.addLayer = function(id){
 			if(layers[id]){
+				
+				if(this.layers[id].leaflet){
+					this.layers[id].leaflet.remove();
+					delete this.layers[id].leaflet;
+				}
 
 				// Should check if this layer is huge and only markers
 				// If it is we should make a cluster layer
@@ -541,11 +602,19 @@
 				this.visible[id] = true;
 				this.setLayerColours(id);
 
+				// Set a default colour
+				if(!layers[id].colour) layers[id].colour = "#F9BC26";
+
+				layers[id].originalcolour = layers[id].colour;
+				layers[id]._attr = (this.anchor.layers && this.anchor.layers[id] ? this.anchor.layers[id] : {});
+				if(layers[id]._attr && layers[id]._attr.colour) layers[id].colour = '#'+layers[id]._attr.colour;
+				if(layers[id]._attr && layers[id]._attr.color) layers[id].colour = '#'+layers[id]._attr.color;
+				
+				if(this.layers[id].leaflet) this.layers[id].leaflet.remove();
+
 				var customicon = makeMarker(layers[id].colour);
 				var _obj = this;
 
-				// Set a default colour
-				if(!layers[id].colour) layers[id].colour = "#F9BC26";
 				var geoattrs = {
 					'style': { "color": layers[id].colour, "weight": 2, "opacity": 0.65 },
 					'pointToLayer': function(geoJsonPoint, latlng){ return L.marker(latlng,{icon: customicon}); },
@@ -561,7 +630,24 @@
 				if(layers[id].format && layers[id].format.type == "chloropleth"){
 					var min = 1e100;
 					var max = -1e100;
-					var key =  layers[id].format.key || 'VALUE';
+					var key =  'VALUE';
+					
+					// Do we have a bunch of keys?
+					if(layers[id].format.keys){
+						// Use the first key
+						key = layers[id].format.keys[0];
+						// If the URL string has defined a key to use, use that.
+						if(this.anchor.layers[id].key){
+							for(var k in layers[id].format.keys){
+								if(layers[id].format.keys[k]==this.anchor.layers[id].key) key = this.anchor.layers[id].key;
+							}
+						}
+					}
+					// If we have explicitly set the key, use that
+					if(layers[id].format.key) key = layers[id].format.key;
+
+					layers[id]._attr.key = key;
+					
 					for(i = 0; i < layers[id].data.features.length; i++){
 						v = layers[id].data.features[i].properties[key];
 						if(typeof v==="number"){
@@ -621,10 +707,19 @@
 					this.layers[id].leaflet = L.geoJSON(layers[id].data,geoattrs);
 				}
 				this.layers[id].leaflet.addTo(this.map);
-				//updateMap();
+
+				this.updateTitle(id);
 			}
 			return this;
-		};
+		}
+		this.updateTitle = function(id){
+			title = layers[id] ? layers[id].name||id : id;
+			if(layers[id]._attr && layers[id]._attr.key) title += ': '+layers[id]._attr.key;
+
+			// Update layer properties
+			this.layerlookup[id].find('.heading').html(title);
+
+		}
 
 		var tooltip = L.DomUtil.get('tooltip');
 		function addTooltip (e) {
@@ -748,7 +843,7 @@
 			return this;
 		};
 
-		this.loadLayer = function(id){
+		this.loadLayer = function(id,attr){
 			if(!this.layersloaded){ this.layerstoload.push(id); return; }
 			if(!layers[id]){ layers[id] = {}; }
 			if(!this.layers[id]){ this.layers[id] = {'active':false}; }
@@ -762,7 +857,7 @@
 					var el = document.createElement('li');
 					el.setAttribute('class','loading');
 					el.setAttribute('data-id',id);
-					el.innerHTML = '<a href="#" class="heading padding" tabindex="0">'+(layers[id] ? layers[id].name||id : id)+'<span class="loading">| loading...</span></a><div class="nav padding">'+(layers[id].edit ? '<a href="#" class="edit" title="Edit this layer">'+getIcon('edit',layers[id].textcolor)+'</a>':'')+'<a href="#" class="info" title="Show information about this layer">'+getIcon('info',layers[id].textcolor)+'</a><a href="#" class="fit" title="Change the map view to fit this layer">'+getIcon('fit',layers[id].textcolor)+'</a><a href="#" class="toggle" title="Toggle layer visibility">'+getIcon('hide',layers[id].textcolor)+'</a>'+'<a href="#" class="remove" title="Remove this layer">'+getIcon('remove',layers[id].textcolor)+'</a></div><div class="description"><div class="padding">'+(layers[id].desc ? layers[id].desc:'')+'<p class="credit"><a href="'+layers[id].url+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p></div><div class="download"></div></div>';
+					el.innerHTML = '<a href="#" class="heading padding" tabindex="0">'+(layers[id] ? layers[id].name||id : id)+'<span class="loading">| loading...</span></a><div class="nav padding">'+(layers[id].edit ? '<a href="#" class="edit" title="Edit this layer">'+getIcon('edit',layers[id].textcolor)+'</a>':'')+'<a href="#" class="info" title="Show information about this layer">'+getIcon('info',layers[id].textcolor)+'</a><a href="#" class="fit" title="Change the map view to fit this layer">'+getIcon('fit',layers[id].textcolor)+'</a><a href="#" class="toggle" title="Toggle layer visibility">'+getIcon('hide',layers[id].textcolor)+'</a>'+'<a href="#" class="remove" title="Remove this layer">'+getIcon('remove',layers[id].textcolor)+'</a></div><div class="description"><div class="keys"></div><div class="padding">'+(layers[id].desc ? layers[id].desc:'')+'<p class="credit"><a href="'+layers[id].url+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p></div><div class="download"></div></div>';
 					this.layerlookup[id] = S(this.target.find('.layers ul')[0].appendChild(el));
 
 					this.log.message('layerlookup',JSON.parse(JSON.stringify(this.layerlookup)));
