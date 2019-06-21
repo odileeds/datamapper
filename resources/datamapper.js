@@ -637,7 +637,7 @@
 						// Use the first key
 						key = layers[id].format.keys[0];
 						// If the URL string has defined a key to use, use that.
-						if(this.anchor.layers[id].key){
+						if(this.anchor.layers && this.anchor.layers[id].key){
 							for(var k in layers[id].format.keys){
 								if(layers[id].format.keys[k]==this.anchor.layers[id].key) key = this.anchor.layers[id].key;
 							}
