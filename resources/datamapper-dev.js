@@ -333,7 +333,6 @@
 		};
 
 		this.updateLayers = function(){
-			console.log('updateLayers');
 			this.log.message('updateLayers');
 			var ls = this.target.find('.layers li');
 			this.log.message('updateLayers',ls);
@@ -363,8 +362,8 @@
 					// Update layer properties
 					if(el.find('.description .keys').length > 0){
 						var opt = '';
-						for(var k in layers[id].format.keys){
-							opt += '<option value="'+layers[id].format.keys[k]+'"'+(layers[id]._attr.key==layers[id].format.keys[k] ? ' selected="selected"':'')+'>'+layers[id].format.keys[k]+'</option>';
+						if(layers[id].format && layers[id].format.keys){
+							for(var k in layers[id].format.keys) opt += '<option value="'+layers[id].format.keys[k]+'"'+(layers[id]._attr && layers[id]._attr.key==layers[id].format.keys[k] ? ' selected="selected"':'')+'>'+layers[id].format.keys[k]+'</option>';
 						}
 						// Add the HTML to the page
 						el.find('.description .keys').html('<select>'+opt+'</select>');
