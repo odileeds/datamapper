@@ -12,6 +12,7 @@ a.button, button { line-height: 2em; font-size: 1em; padding: 0.5em 1em;  border
 .datamapper .download a.button { width: 100%; text-align: center; color: inherit; background: rgba(255,255,255,0.3); }
 .datamapper .download a.button:hover { color: white!important; background: rgb(0,0,0); }
 .datamapper .layers ul li .description .download { background-color: inherit; }
+.datamapper .layers ul li .description .keys select { line-height: 3em; width: 100%; height: 3em; padding: 0 1em; }
 .datamapper .deactivated { background: #efefef!important; color: black; }
 #saver { position: fixed; z-index: 100; bottom: 2em; right: 1em; padding: 1em; }
 
