@@ -360,7 +360,7 @@
 					this.updateTitle(id);
 
 					// Update layer properties
-					if(el.find('.description .keys').length > 0){
+					if(layers[id].format && layers[id].format.keys){
 						var opt = '';
 						if(layers[id].format && layers[id].format.keys){
 							for(var k in layers[id].format.keys) opt += '<option value="'+layers[id].format.keys[k]+'"'+(layers[id]._attr && layers[id]._attr.key==layers[id].format.keys[k] ? ' selected="selected"':'')+'>'+layers[id].format.keys[k]+'</option>';
