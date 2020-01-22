@@ -38,7 +38,7 @@
 		this.logging = (location.search.indexOf("logging=true") >= 0 ? true : false);
 		this.layers = {};
 		this.log = new Logger({'id':this.title,'logging':this.logging});
-		
+
 		// Do we update the address bar?
 		this.pushstate = !!(window.history && history.pushState);
 
@@ -59,7 +59,8 @@
 			// Add the datamapper class to the main element
 			// This will target all the CSS styles
 			this.target.addClass('datamapper');
-			if(this.target.find('h1').length == 1) this.target.find('h1').html(this.title+' '+this.version);
+			if(this.target.find('h1').length == 1) this.target.find('h1').html(this.title);
+			if(this.target.find('.version').length == 1) this.target.find('.version').html(this.version);
 
 			if(this.target.find('.left').length == 0) this.target.append('<div class="left"></div>');
 			if(this.target.find('.left .offside').length == 0){
@@ -202,7 +203,7 @@
 					}
 				});
 			}
-			
+
 			this.trigger('init');
 
 			return this;
@@ -289,7 +290,7 @@
 			}
 			return this;
 		};
-		
+
 		this.getProps = function(str){
 			var i,p,out,pairs;
 			// Define acceptable property keys
@@ -362,8 +363,12 @@
 					// Update layer properties
 					if(layers[id].format && layers[id].format.keys){
 						var opt = '';
-						if(layers[id].format && layers[id].format.keys){
-							for(var k in layers[id].format.keys) opt += '<option value="'+layers[id].format.keys[k]+'"'+(layers[id]._attr && layers[id]._attr.key==layers[id].format.keys[k] ? ' selected="selected"':'')+'>'+layers[id].format.keys[k]+'</option>';
+						for(var k in layers[id].format.keys){
+							if(typeof layers[id].format.keys[k]==="string"){
+								opt += '<option value="'+layers[id].format.keys[k]+'"'+(layers[id]._attr && layers[id]._attr.key==layers[id].format.keys[k] ? ' selected="selected"':'')+'>'+layers[id].format.keys[k]+'</option>';
+							}else if(typeof layers[id].format.keys[k].key==="string"){
+								opt += '<option value="'+layers[id].format.keys[k].key+'"'+(layers[id]._attr && layers[id]._attr.key==layers[id].format.keys[k].key ? ' selected="selected"':'')+'>'+(layers[id].format.keys[k].title||layers[id].format.keys[k].key)+'</option>';
+							}
 						}
 						// Add the HTML to the page
 						el.find('.description .keys').html('<select>'+opt+'</select>');
@@ -572,7 +577,7 @@
 
 		this.addLayer = function(id){
 			if(layers[id]){
-				
+
 				if(this.layers[id].leaflet){
 					this.layers[id].leaflet.remove();
 					delete this.layers[id].leaflet;
@@ -631,7 +636,7 @@
 					var min = 1e100;
 					var max = -1e100;
 					var key =  'VALUE';
-					
+
 					// Do we have a bunch of keys?
 					if(layers[id].format.keys){
 						// Use the first key
@@ -639,7 +644,11 @@
 						// If the URL string has defined a key to use, use that.
 						if(this.anchor.layers && this.anchor.layers[id].key){
 							for(var k in layers[id].format.keys){
-								if(layers[id].format.keys[k]==this.anchor.layers[id].key) key = this.anchor.layers[id].key;
+								if(typeof layers[id].format.keys[k]==="string"){
+									if(layers[id].format.keys[k]==this.anchor.layers[id].key) key = this.anchor.layers[id].key;
+								}else if(typeof layers[id].format.keys[k].key==="string"){
+									if(layers[id].format.keys[k].key==this.anchor.layers[id].key) key = this.anchor.layers[id].key;
+								}
 							}
 						}
 					}
@@ -647,9 +656,14 @@
 					if(layers[id].format.key) key = layers[id].format.key;
 
 					layers[id]._attr.key = key;
-					
+
 					for(i = 0; i < layers[id].data.features.length; i++){
-						v = layers[id].data.features[i].properties[key];
+						if(typeof key==="string") v = layers[id].data.features[i].properties[key];
+						else if(typeof key.key==="string") v = layers[id].data.features[i].properties[key.key];
+
+						if(typeof layers[id]._attr.key.convert==="object"){
+							if(typeof layers[id]._attr.key.convert[v]==="number") v = layers[id]._attr.key.convert[v];
+						}
 						if(typeof v==="number"){
 							min = Math.min(v,min);
 							max = Math.max(v,max);
@@ -658,9 +672,14 @@
 					var inverse = (layers[id].format.inverse ? true : false);
 					geoattrs.style = function(feature){
 						if(feature.geometry.type == "Polygon" || feature.geometry.type == "MultiPolygon"){
-							var v = 0;
-							if(typeof feature.properties[key]==="number"){
-								var f = (feature.properties[key]-min)/(max-min);
+							var val = "";
+							var k = "";
+							if(typeof key==="string") k = key;
+							else if(typeof key.key==="string") k = key.key;
+							if(typeof feature.properties[k]==="number") val = feature.properties[k];
+							if(typeof feature.properties[k]==="string" && typeof layers[id]._attr.key.convert[feature.properties[k]]==="number") val = layers[id]._attr.key.convert[feature.properties[k]];
+							if(typeof val==="number"){
+								var f = (val-min)/(max-min);
 								if(inverse) f = 1-f;
 								v = (f*0.6 + 0.2);
 							}
@@ -714,7 +733,7 @@
 		}
 		this.updateTitle = function(id){
 			title = layers[id] ? layers[id].name||id : id;
-			if(layers[id]._attr && layers[id]._attr.key) title += ': '+layers[id]._attr.key;
+			if(layers[id]._attr && layers[id]._attr.key) title += ': '+(typeof layers[id]._attr.key==="string" ? layers[id]._attr.key : (layers[id]._attr.key.title||layers[id]._attr.key.key));
 
 			// Update layer properties
 			this.layerlookup[id].find('.heading').html(title);
