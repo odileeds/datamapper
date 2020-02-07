@@ -628,11 +628,11 @@
 						if(popup) layer.bindPopup(popup);
 					}
 				};
-				// Is this a chloropleth layer?
+				// Is this a choropleth layer?
 				// If it is we work out the scale and then change the style to a function
 				// so we can deal with each feature seperately
 				if(!layers[id].format && layers[id].data.format) layers[id].format = layers[id].data.format;
-				if(layers[id].format && layers[id].format.type == "chloropleth"){
+				if(layers[id].format && (layers[id].format.type == "chloropleth" || layers[id].format.type == "choropleth")){
 					var min = 1e100;
 					var max = -1e100;
 					var key =  'VALUE';
