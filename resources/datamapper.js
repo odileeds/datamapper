@@ -658,8 +658,13 @@
 					layers[id]._attr.key = key;
 
 					for(i = 0; i < layers[id].data.features.length; i++){
-						if(typeof key==="string") v = layers[id].data.features[i].properties[key];
-						else if(typeof key.key==="string") v = layers[id].data.features[i].properties[key.key];
+						if(typeof key==="string"){
+							if(layers[id].data.features[i].properties[key] == parseFloat(layers[id].data.features[i].properties[key])) layers[id].data.features[i].properties[key] = parseFloat(layers[id].data.features[i].properties[key]);
+							v = layers[id].data.features[i].properties[key];
+						}else if(typeof key.key==="string"){
+							if(layers[id].data.features[i].properties[key.key] == parseFloat(layers[id].data.features[i].properties[key.key])) layers[id].data.features[i].properties[key.key] = parseFloat(layers[id].data.features[i].properties[key.key]);
+							v = layers[id].data.features[i].properties[key.key];
+						}
 
 						if(typeof layers[id]._attr.key.convert==="object"){
 							if(typeof layers[id]._attr.key.convert[v]==="number") v = layers[id]._attr.key.convert[v];
@@ -677,7 +682,7 @@
 							if(typeof key==="string") k = key;
 							else if(typeof key.key==="string") k = key.key;
 							if(typeof feature.properties[k]==="number") val = feature.properties[k];
-							if(typeof feature.properties[k]==="string" && typeof layers[id]._attr.key.convert[feature.properties[k]]==="number") val = layers[id]._attr.key.convert[feature.properties[k]];
+							if(typeof feature.properties[k]==="string" && layers[id]._attr.key.convert && layers[id]._attr.key.convert[feature.properties[k]] && typeof layers[id]._attr.key.convert[feature.properties[k]]==="number") val = layers[id]._attr.key.convert[feature.properties[k]];
 							if(typeof val==="number"){
 								var f = (val-min)/(max-min);
 								if(inverse) f = 1-f;
@@ -1035,7 +1040,7 @@
 						ok = true;
 						// Create an empty rank for this layer
 						if(layers[i].name){
-							
+
 							this.layers[i].rank = 0;
 
 							// Do we have a topic?
@@ -1074,15 +1079,17 @@
 									}
 								}
 								this.layers[i].id = i;
+							}
+							if(ok){
 								if(this.layers[i].rank > 0){
 									if(layers[i].centre && layers[i].centre.length == 2){
 										// Calculate the distance
 										try {
-											dist = p.distanceTo(layers[i].centre);
+											dist = p.distanceTo(layers[i].centre)/1000;
 										}catch (err){
-					
+
 										}
-										this.layers[i].rank += Math.min(10,(1000/dist));
+										this.layers[i].rank += Math.min(10,10/dist);
 									}
 									tmp.push(this.layers[i]);
 								}
@@ -1336,6 +1343,9 @@
 				if(feature.properties[p]){
 					while(popup.indexOf("%"+p+"%") >= 0){
 						popup = popup.replace("%"+p+"%",feature.properties[p] || "?");
+					}
+					while(popup.indexOf("{{"+p+"}}") >= 0){
+						popup = popup.replace("{{"+p+"}}",feature.properties[p] || "?");
 					}
 				}
 			}

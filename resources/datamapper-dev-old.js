@@ -2,43 +2,71 @@
 
 	var layers = {};
 
+	function setHexTextColor(hex){
+		var L1 = getL(hex);
+		var Lb = getL('#000000');
+		var Lw = getL('#ffffff');
+		var rb = (Math.max(L1, Lb) + 0.05) / (Math.min(L1, Lb) + 0.05);
+		var rw = (Math.max(L1, Lw) + 0.05) / (Math.min(L1, Lw) + 0.05);
+		return (rb > rw ? '#000000':'#FFFFFF');
+	}
+
+	function getL(c) {
+		return (0.2126 * getsRGB(c.substr(1, 2)) + 0.7152 * getsRGB(c.substr(3, 2)) + 0.0722 * getsRGB(c.substr(-2)));
+	}
+
+	function getRGB(c) {
+		try { var c = parseInt(c, 16); } catch (err) { var c = false; }
+		return c;
+	}
+
+	function getsRGB(c) {
+		c = getRGB(c) / 255;
+		c = (c <= 0.03928) ? c / 12.92 : Math.pow(((c + 0.055) / 1.055), 2.4);
+		return c;
+	}
+
+	function makeMarker(colour){
+		return L.divIcon({
+			'className': '',
+			'html':	'<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" width="7.0556mm" height="11.571mm" viewBox="0 0 25 41.001" id="svg2" version="1.1"><g id="layer1" transform="translate(1195.4,216.71)"><path style="fill:%COLOUR%;fill-opacity:1;fill-rule:evenodd;stroke:#ffffff;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none" d="M 12.5 0.5 A 12 12 0 0 0 0.5 12.5 A 12 12 0 0 0 1.8047 17.939 L 1.8008 17.939 L 12.5 40.998 L 23.199 17.939 L 23.182 17.939 A 12 12 0 0 0 24.5 12.5 A 12 12 0 0 0 12.5 0.5 z " transform="matrix(1,0,0,1,-1195.4,-216.71)" id="path4147" /><ellipse style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.428;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" id="path4173" cx="-1182.9" cy="-204.47" rx="5.3848" ry="5.0002" /></g></svg>'.replace(/%COLOUR%/,colour||"#000000"),
+			iconSize:	 [25, 41], // size of the icon
+			shadowSize:	 [41, 41], // size of the shadow
+			iconAnchor:	 [12.5, 41], // point of the icon which will correspond to marker's location
+			shadowAnchor: [12.5, 41],	// the same for the shadow
+			popupAnchor:	[0, -41] // point from which the popup should open relative to the iconAnchor
+		});
+	}
+
 	function DataMapper(attr){
 		if(!attr) attr = {};
 
 		this.src = ['https://www.imactivate.com/urbancommons/getLayers.php'];
-		this.topicfile = "";
-		this.name = "Data Mapper";
-		this.version = "v0.8";
-		this.title = (attr.title || this.name);
-
-		console.log('%c'+this.name+' '+this.version+'%c','font-weight:bold;font-size:1.25em;','');
-
 		if(attr.id) this.id = attr.id;
 		if(attr.src) this.src = attr.src;
-		if(attr.topics) this.topicfile = attr.topics;
 		if(attr.baseMaps) this.baseMaps = attr.baseMaps;
-		else this.baseMaps = {};
 		this.callbacks = {};
 		if(attr.callbacks) this.callbacks = attr.callbacks;
 
+		var db = new Array();
+		var ids = {};
 		this.visible = {};
 		this.editing = "";
 		this.layersloaded = false;
-		this.layerstoload = [];
+		this.layerstoload = new Array();
 		this.srcloaded = 0;
 		this.target = S(attr.id ? '#'+attr.id : 'body');
-		this.lat = null;
-		this.lon = null;
-		this.d = null;
-		this.mapid = "";
-		this.map = null;
-		this.mapel = null;
+		this.lat;
+		this.lon;
+		this.d;
+		this.mapid;
+		this.map;
+		this.mapel;
 		this.layerlookup = {};
 		this.events = {};
-		this.logging = (location.search.indexOf("logging=true") >= 0 ? true : false);
+		this.logging = true;
 		this.layers = {};
-		this.log = new Logger({'id':this.title,'logging':this.logging});
-
+		
 		// Do we update the address bar?
 		this.pushstate = !!(window.history && history.pushState);
 
@@ -52,15 +80,11 @@
 			return popup;
 		}
 
-
-
 		this.init = function(){
 
 			// Add the datamapper class to the main element
 			// This will target all the CSS styles
-			this.target.addClass('datamapper');
-			if(this.target.find('h1').length == 1) this.target.find('h1').html(this.title);
-			if(this.target.find('.version').length == 1) this.target.find('.version').html(this.version);
+			this.target.addClass('datamapper')
 
 			if(this.target.find('.left').length == 0) this.target.append('<div class="left"></div>');
 			if(this.target.find('.left .offside').length == 0){
@@ -69,7 +93,7 @@
 			}
 			if(this.target.find('.left .layers').length == 0) this.target.find('.left').prepend('<menu class="panel layers"><div class="panel-inner"><button class="add-layer add">&plus; Add</button><h2>Layers</h2><ul id="layers-list"></ul></div></menu>');
 			if(this.target.find('.left .map').length == 0) this.target.append('<div class="map"><div id="tooltip"></div></div>');
-			if(this.target.find('.left .layer-search').length == 0) this.target.append('<div class="layer-search popup"><button class="close" title="Close"></button><div class="padded inner"><h2>Add a layer</h2><form action="/search/" method="GET"><input value="" class="b6-bg" type="submit"><input class="q" name="q" value="" type="text" placeholder="To search the layers start typing here" autocomplete="off"></form></div></div>');
+			if(this.target.find('.left .layer-search').length == 0) this.target.append('<div class="layer-search popup"><button class="close" title="Close"></button><div class="padded inner"><h2>Add a layer</h2><form action="/search/" method="GET"><input class="q" name="q" value="" type="text" placeholder="To search the layers start typing here" autocomplete="off"><input value="" class="b6-bg" type="submit"></form></div></div>');
 
 			// Add events
 			this.target.find('.layer-search form').on('submit',function(e){
@@ -86,8 +110,7 @@
 
 			this.target.find('.add-layer').on('click',{me:this},function(e){
 				e.data.me.target.find('.layer-search').addClass('open').find('.q').focus();
-				e.data.me.addTopicSearch();
-				e.data.me.layerSearchResults("");
+				processResult();
 			});
 
 			this.target.find('.layer-search .close').html(getIcon('remove')).on('click',{me:this},function(e){
@@ -96,9 +119,9 @@
 			});
 
 			this.target.find('.q').on('focus',{me:this},function(e){
-				e.data.me.log.message('Focus',layers,e.data.me.target.find('.layer-search .searchresults'));
+				e.data.me.log('Focus',layers,e.data.me.target.find('.layer-search .searchresults'))
 				if(e.data.me.target.find('.layer-search .searchresults').length <= 0){
-					e.data.me.log.message('Here',e.data.me.target.find('.layer-search form'));
+					e.data.me.log('Here',e.data.me.target.find('.layer-search form'))
 					e.data.me.target.find('.layer-search form').after('<div class="searchresults"></div>');
 				}
 			}).on('keyup',{me:this},function(e){
@@ -119,12 +142,12 @@
 					e.data.me.target.find('.layer-search .searchresults .selected').removeClass('selected');
 					S(li.e[s]).addClass('selected');
 				}else if(e.originalEvent.keyCode==13){
-					selectName.call(e.data.me,{'selected':e.data.me.target.find('.layer-search .searchresults .selected')});
+					selectName(e.data.me.target.find('.layer-search .searchresults .selected'))
 				}else{
 					// Need to load the data file for the first letter
 					var name = this.e[0].value.toLowerCase();
 					//var fl = name[0];
-					e.data.me.layerSearchResults(name);
+					processResult(name);
 					//if(name == "") clearResults();
 				}
 			});
@@ -156,21 +179,16 @@
 						'this':this,
 						'cache': false,
 						'url': this.src[s],
-						'layers': layers,
-						'popup': makePopup,
 						'success':function(d,attr){
 							if(typeof d=="object"){
-								var l;
-								for(l in d){
-									if(d[l].popup) d[l].popup = attr.popup.call(this,d[l].popup);
+								for(var l in d){
+									if(d[l].popup) d[l].popup = makePopup(d[l].popup);
 								}
-								for(l in d){
-									if(d[l]){
-										attr.layers[l] = d[l];
-										this.layers[l] = {'active':false};
-									}
+								for(var l in d){
+									layers[l] = d[l];
+									this.layers[l] = {'active':false};
 								}
-								this.log.message('ajax',attr.layers);
+								this.log('ajax',layers)
 
 								// Increment source file loading counter
 								this.srcloaded++;
@@ -179,44 +197,26 @@
 								this.finishLoadingLayers();
 							}
 						},
-						'error':function(e,attr){
-							this.log.error("Couldn't load "+attr.url,e);
+						'error':function(e){
+							this.log("Couldn't load",e);
 						}
 					});
 				}
 			}
 			
-			if(this.topicfile){
-				S(document).ajax(this.topicfile,{
-					'dataType':'json',
-					'this':this,
-					'cache': true,
-					'url': this.topicfile,
-					'success':function(d,attr){
-						if(typeof d=="object"){
-							this.log.message('Got topics',d);
-							this.topics = d;
-						}
-					},
-					'error':function(e,attr){
-						this.log.error("Couldn't load topics from "+attr.url);
-					}
-				});
-			}
-
 			this.trigger('init');
 
 			return this;
-		};
+		}
 
 		// Function to create the Leaflet map
 		this.setupMap = function(){
 
-			this.baseMaps.Default = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
+			this.baseMaps['Default']= L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
 				attribution: 'Tiles: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
 				subdomains: 'abcd',
 				maxZoom: 19
-			});
+			})
 
 			// Add map element if it doesn't exist
 			this.mapid = this.id+'-map';
@@ -225,14 +225,14 @@
 			this.lat = 53.79659;
 			this.lon = -1.53385;
 			this.d = 0.03;
-			this.map = L.map(this.mapid,{'layers':[this.baseMaps.Default],'scrollWheelZoom':true,'zoomControl':false,'editable': true}).fitBounds([
+			this.map = L.map(this.mapid,{'layers':[this.baseMaps['Default']],'scrollWheelZoom':true,'zoomControl':false,'editable': true}).fitBounds([
 				[this.lat-this.d, this.lon-this.d],
 				[this.lat+this.d, this.lon+this.d]
 			]);
 
 			new L.Control.Zoom({ position: 'topright' }).addTo(this.map);
 			if(Object.keys(this.baseMaps).length > 1){ var control = L.control.layers(this.baseMaps); control.addTo(this.map); }
-			else this.baseMaps.Default.addTo(this.map);
+			else this.baseMaps['Default'].addTo(this.map);
 
 			var _obj = this;
 			this.map.on('baselayerchange',function(layer){
@@ -258,66 +258,24 @@
 			if(z) this.zoom = z;
 			this.map.setView([this.lat, this.lon], this.zoom);
 			return this;
-		};
+		}
 
 		// Get the anchor attributes
 		this.getAnchor = function(str){
-			var id,a,l,i,attr;
 			if(!str) str = location.href.split("#")[1];
-			if(!str) str = location.search.replace(/logging=true/,"").replace(/\&.*$/g,"").split("?")[1];
+			if(!str) str = location.search.split("?")[1];
 			// CHECK
 			if(str && str.indexOf("\/") < 0 && S('#'+str).length == 1){
 				S('#'+str).addClass('open').find('button').focus();
 				return this;
 			}
-			a = (str) ? str.split('/') : [13,53.79659,-1.53385];
-			if(!this.anchor) this.anchor = {};
-			this.anchor.latitude = a[1];
-			this.anchor.zoom = a[0];
-			this.anchor.longitude = a[2];
-			this.anchor.str = str;
+			var a = (str) ? str.split('/') : [13,53.79659,-1.53385];
 			if(a[3]){
-				l = a[3].split(';');
-				for(i = 0; i < l.length; i++){
-					attr = "";
-					l[i] = l[i].replace(/\{(.*)\}$/g,function(m,p1){ attr = p1; return ""; });
-					if(attr){
-						if(!this.anchor.layers) this.anchor.layers = {};
-						this.anchor.layers[l[i]] = this.getProps(attr);
-					}
-					_obj.loadLayer(l[i]);
-				}
+				var l = a[3].split(';');
+				for(var i = 0; i < l.length; i++) _obj.loadLayer(l[i]);
 			}
+			this.anchor = {'latitude':a[1],'zoom':a[0],'longitude':a[2],'str':str};
 			return this;
-		};
-
-		this.getProps = function(str){
-			var i,p,out,pairs;
-			// Define acceptable property keys
-			var ok = {'colour':true,'color':true,'key':true};
-			pairs = decodeURI(str).split(/\,/);
-			if(typeof pairs==="string") pairs = [pairs];
-			out = {'_original':str};
-			for(i = 0; i < pairs.length; i++){
-				p = pairs[i].split(/:/);
-				// Only allow acceptable keys
-				if(ok[p[0]]) out[p[0]] = p[1];
-			}
-			return out;
-		}
-
-		this.getPropsString = function(a){
-			var str = "";
-			if(this.anchor.layers && this.anchor.layers[a]){
-				for(var key in this.anchor.layers[a]){
-					if(key[0] != "_"){
-						if(str) str += ',';
-						str += key+':'+this.anchor.layers[a][key];
-					}
-				}
-			}
-			if(str) str = '{'+str+'}';
-			return str;
 		}
 
 		// Work out where we are based on the anchor tag
@@ -331,19 +289,30 @@
 			}
 			this.updateLayers();
 			return this;
-		};
-
+		}
+		this.log = function(){
+			if(this.logging || arguments[0]=="ERROR"){
+				var args = Array.prototype.slice.call(arguments, 0);
+				var name = "DataMapper";
+				if(console && typeof console.log==="function"){
+					if(arguments[0] == "ERROR") console.log('%cERROR%c %c'+name+'%c: '+args[1],'color:white;background-color:#D60303;padding:2px;','','font-weight:bold;','',(args.length > 2 ? args.splice(2):""));
+					else if(arguments[0] == "WARNING") console.log('%cWARNING%c %c'+name+'%c: '+args[1],'color:white;background-color:#F9BC26;padding:2px;','','font-weight:bold;','',(args.length > 2 ? args.splice(2):""));
+					else console.log('%c'+name+'%c','font-weight:bold;','',args);
+				}
+			}
+			return this;
+		}
 		this.updateLayers = function(){
-			this.log.message('updateLayers');
+			this.log('updateLayers')
 			var ls = this.target.find('.layers li');
-			this.log.message('updateLayers',ls);
-			var el,i,c,id,title;
+			this.log('updateLayers',ls)
+			var el;
 			var credits = {};
 			var attrib = "";
-			for(i = 0; i < ls.length; i++){
+			for(var i = 0; i < ls.length; i++){
 				el = S(ls[i]);
 				id = el.attr('data-id');
-				this.log.message('el',el,ls,id,layers[id]);
+				this.log('el',el,ls,id,layers[id])
 				if(layers[id]){
 					if(!this.layers[id]) this.layers[id] = {};
 					this.layers[id].active = false;
@@ -354,71 +323,55 @@
 						this.layers[id].active = !this.layers[id].active;
 						this.toggleLayer(id);
 					}
-					this.log.message('layers',layers[id],this.layers[id]);
-
+					this.log('layers',layers[id],this.layers[id]);
+					
 					if(this.layers[id].active) credits[getCredit(layers[id],"text")] = true;
 
-					this.updateTitle(id);
-
 					// Update layer properties
-					if(layers[id].format && layers[id].format.keys){
-						var opt = '';
-						for(var k in layers[id].format.keys){
-							if(typeof layers[id].format.keys[k]==="string"){
-								opt += '<option value="'+layers[id].format.keys[k]+'"'+(layers[id]._attr && layers[id]._attr.key==layers[id].format.keys[k] ? ' selected="selected"':'')+'>'+layers[id].format.keys[k]+'</option>';
-							}else if(typeof layers[id].format.keys[k].key==="string"){
-								opt += '<option value="'+layers[id].format.keys[k].key+'"'+(layers[id]._attr && layers[id]._attr.key==layers[id].format.keys[k].key ? ' selected="selected"':'')+'>'+(layers[id].format.keys[k].title||layers[id].format.keys[k].key)+'</option>';
-							}
-						}
-						// Add the HTML to the page
-						el.find('.description .keys').html('<select>'+opt+'</select>');
-						// Add an event to the <select>
-						el.find('.description .keys select').on('change',{id:id,me:this},function(e){
-							layers[e.data.id].format.key = e.currentTarget.value;
-							e.data.me.addLayer(e.data.id);
-						})
-					}
+					el.find('.heading').html(layers[id] ? layers[id].name||id : id);
 					el.find('.description .padding').html((layers[id].desc || '')+(layers[id].owner == "osm" ? '<br /><br />This data set comes from Open Street Map - a map built by citizens. If something is not quite right you can help <a href="https://openstreetmap.org/edit?pk_campaign=odileeds-edit">improve the map</a>.':'')+'<p class="credit"><a href="'+(layers[id].url || "")+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p>'+(layers[id].date ? '<p>Last updated: '+layers[id].date+'</p>':''));
 					el.find('.description .download').html((typeof layers[id].geojson === "string" ? '<a href="'+layers[id].geojson+'" class="button">Download (GeoJSON'+(layers[id].size ? ' '+niceSize(layers[id].size) : '')+')</a>' : ''));
 					// Update color of layer
 					this.setLayerColours(id);
 				}
 			}
-			for(c in credits){
-				if(credits[c]){
-					if(attrib) attrib += "; ";
-					attrib += c;
-				}
+			for(var c in credits){
+				if(attrib) attrib += "; ";
+				attrib += c;
 			}
-			this.log.message('ATTRIB',attrib,credits);
+			this.log('ATTRIB',attrib,credits)
 			if(attrib) attrib = "<strong>Data:</strong> "+attrib;
 			this.map.attributionControl.setPrefix(attrib ? '<span class="AttributionClass">'+attrib+'</span>':'');
 
 
 			return this;
-		};
+		}
 
 		this.updateMap = function(){
 			var centre = this.map.getCenter();
 			var s = "";
 			var i = 0;
 			for(var a in this.visible){
-				if(this.visible[a]){
-					if(s) s += ';';
-					s += a+this.getPropsString(a);
-					i++;
-				}
+				if(s) s += ';';
+				s += a;
+				i++;
 			}
 			_obj.moveMap({},this.map.getZoom()+'/'+centre.lat.toFixed(5)+'/'+centre.lng.toFixed(5)+'/'+s);
 			if(i > 0) this.target.find('.nolayers').remove();
-		};
+		}
 
 		// Initial set up
 		var _obj = this;
 
-		function loadCode(url,attr,callback){
+		function clearResults(){
+			// Zap search results
+			_obj.target.find('.layer-search .searchresults').html('');
+			return this;
+		}
+
+		function loadCode(url,callback){
 			var el;
-			_obj.log.message('loadCode',url);
+			_obj.log('loadCode',url,url.indexOf(".js"));
 			if(url.indexOf(".js")>= 0){
 				el = document.createElement("script");
 				el.setAttribute('type',"text/javascript");
@@ -430,10 +383,25 @@
 				el.setAttribute('href',url);
 			}
 			if(el){
-				attr.url = url;
-				el.onload = function(){ callback.call((attr.this||this),attr); };
+				el.onload = function(){ callback.call(this,{'url':url}); };
 				document.getElementsByTagName('head')[0].appendChild(el);
 			}
+		}
+
+
+		// Select one of the options in the drop down list
+		function selectName(selected){
+			// Get the ID from the DOM element's data-id attribute
+			// Use that to find the index that corresponds to in the "db" hash
+			var id = selected.attr('data-id');
+			clearResults();
+_obj.log('Lookup',_obj.layerlookup,id,_obj.layerlookup[id])
+			if(!_obj.layerlookup[id] || _obj.layerlookup[id].length <= 0){
+				_obj.target.find('.q')[0].value = '';
+				clearResults();
+				_obj.loadLayer(id);
+			}
+			_obj.target.find('.layer-search .close').trigger('click');
 		}
 
 		// Attach a handler to an event for the Data Mapper object
@@ -443,12 +411,12 @@
 		this.on = function(ev,e,fn){
 			if(typeof ev!="string") return this;
 			if(typeof fn=="undefined"){ fn = e; e = {}; }
-			else{ e = {data:e}; }
+			else{ e = {data:e} }
 			if(typeof e!="object" || typeof fn!="function") return this;
 			if(this.events[ev]) this.events[ev].push({e:e,fn:fn});
 			else this.events[ev] = [{e:e,fn:fn}];
 			return this;
-		};
+		}
 
 		// Trigger a defined event with arguments. This is for internal-use to be 
 		// sure to include the correct arguments for a particular event
@@ -459,11 +427,11 @@
 			if(typeof this.events[ev]=="object"){
 				for(var i = 0 ; i < this.events[ev].length ; i++){
 					var e = deepExtend({},this.events[ev][i].e,args);
-					if(typeof this.events[ev][i].fn == "function") o.push(this.events[ev][i].fn.call(this,e));
+					if(typeof this.events[ev][i].fn == "function") o.push(this.events[ev][i].fn.call(this,e))
 				}
 			}
 			if(o.length > 0) return o;
-		};
+		}
 
 		this.removeLayerData = function(id){
 			if(layers[id]){
@@ -474,19 +442,19 @@
 					// Remove the data
 					this.layers[id].leaflet.remove();
 					delete this.layers[id].leaflet;
+					//delete this.layerlookup[id];
 				}
 			}
 			return this;
-		};
+		}
 
 		this.removeLayer = function(id){
-			this.log.message('removeLayer',id);
+			this.log('removeLayer',id)
 			this.layerlookup[id].remove();
-			delete this.layerlookup[id];
 			this.removeLayerData(id);
 			this.updateMap();
 			return this;
-		};
+		}
 
 		this.updateLayerState = function(id){
 			if(layers[id]){
@@ -495,11 +463,11 @@
 					else this.layerlookup[id].addClass('deactivated').css({'color':''});
 					this.setLayerColours(id);
 				}else{
-					this.log.error('Unable to update layer state for '+id,this.layerlookup);
+					this.log('ERROR','Unable to update layer state for '+id,this.layerlookup);
 				}
 			}
 			return this;
-		};
+		}
 
 		this.showLayer = function(id){
 			if(layers[id]){
@@ -507,17 +475,15 @@
 				this.updateLayerState(id);
 			}
 			return this;
-		};
-
+		}
 		this.hideLayer = function(id){
-			this.log.message('hideLayer');
+			this.log('hideLayer');
 			if(layers[id]){
 				this.removeLayerData(id);
 				this.updateLayerState(id);
 			}
 			return this;
-		};
-
+		}
 		this.toggleLayer = function(id){
 			if(layers[id]){
 				this.layers[id].active = !this.layers[id].active;
@@ -525,12 +491,11 @@
 				else this.hideLayer(id);
 			}
 			return this;
-		};
-
+		}
 		this.fitLayer = function(id){
 			if(layers[id]) this.map.fitBounds(this.layers[id].leaflet.getBounds());
 			return this;
-		};
+		}
 
 		this.setLayerColours = function(id){
 			if(layers[id]){
@@ -540,7 +505,7 @@
 					// Set layer properties
 					this.layerlookup[id].css({'background':layers[id].colour,'color':(this.layers[id].active ? layers[id].textcolor:'')});
 					// Work out the text/icon colour
-					var c = getComputedStyle(this.layerlookup[id][0])['color'];
+					c = getComputedStyle(this.layerlookup[id][0])['color'];
 					this.layerlookup[id].find('.toggle').html((this.layers[id].active ? getIcon("hide",c):getIcon("show",c)));
 					this.layerlookup[id].find('.fit').html(getIcon("fit",c));
 					this.layerlookup[id].find('.info').html(getIcon("info",c));
@@ -550,46 +515,40 @@
 				}
 			}
 			return this;
-		};
+		}
 
 		// Load any necessary extra js/css for clustering
 		this.loadClusterCode = function(id){
 			var files = ['https://odileeds.org/resources/leaflet.markercluster-src.js','https://odileeds.org/resources/L.markercluster.css','https://odileeds.org/resources/L.markercluster.default.css'];
+			var _obj = this;
 			if(!this.extraLoaded) this.extraLoaded = {};
 
 			for(var i = 0; i < files.length; i++){
-				loadCode(files[i],{"files":files,"this":this,"id":id},function(e){
-					this.log.message('loaded',e.url,e);
-					this.extraLoaded[e.url] = true;
+				loadCode(files[i],function(e){
+					_obj.extraLoaded[e.url] = true;
 					var got = 0;
-					for(var i = 0; i < e.files.length; i++){
-						if(this.extraLoaded[e.files[i]]) got++;
+					for(var i = 0; i < files.length; i++){
+						if(_obj.extraLoaded[files[i]]) got++;
 					}
-					if(got==e.files.length){
-						this.clustercodeloaded = true;
-						this.addLayer(e.id);
-						this.updateMap();
+					if(got==files.length){
+						_obj.clustercodeloaded = true;
+						_obj.addLayer(id);
+						_obj.updateMap();
 					}
-				});
+				})
 			}
 			return this;
-		};
+		}
 
 		this.addLayer = function(id){
 			if(layers[id]){
-
-				if(this.layers[id].leaflet){
-					this.layers[id].leaflet.remove();
-					delete this.layers[id].leaflet;
-				}
 
 				// Should check if this layer is huge and only markers
 				// If it is we should make a cluster layer
 				var needscluster = false;
 				var points = 0;
-				var i,v,c,marker;
 				if(layers[id].data){
-					for(i = 0; i < layers[id].data.features.length; i++){
+					for(var i = 0; i < layers[id].data.features.length; i++){
 						if(layers[id].data.features[i].geometry.type=="Point") points++;
 					}
 					if(points > 50 && points==layers[id].data.features.length) needscluster = true;
@@ -601,32 +560,77 @@
 					}
 				}
 
-				this.log.message('Check leaflet ',id,this.layers[id]);
+				this.log('Check leaflet ',id,this.layers[id]);
 				if(this.layers[id].leaflet) this.removeLayerData(id);
 				this.layers[id].active = true;
 				this.visible[id] = true;
 				this.setLayerColours(id);
-
+				function popuptext(feature){
+					// does this feature have a property named popupContent?
+					popup = '';
+					if(feature.properties){
+						// If this feature has a default popup
+						// Convert "other_tags" e.g "\"ele:msl\"=>\"105.8\",\"ele:source\"=>\"GPS\",\"material\"=>\"stone\""
+						if(feature.properties.other_tags){
+							tags = feature.properties.other_tags.split(/,/);
+							for(var t = 0; t < tags.length; t++){
+								tags[t] = tags[t].replace(/\"/g,"");
+								bits = tags[t].split(/\=\>/);
+								if(bits.length == 2){
+									if(!feature.properties[bits[0]]) feature.properties[bits[0]] = bits[1];
+								}
+							}
+						}
+						if(feature.properties.popup){
+							popup = feature.properties.popup.replace(/\n/g,"<br />");
+						}else{
+							// If the layer has a default popup style
+							if(layers[id].popup){
+								popup = layers[id].popup;
+								if(typeof popup==="function") popup = popup(feature);
+							}else{
+								title = '';
+								if(feature.properties.title || feature.properties.name || feature.properties.Name) title = (feature.properties.title || feature.properties.name || feature.properties.Name);
+								//if(!title) title = "Unknown name";
+								if(title) popup += '<h3>'+(title)+'</h3>';
+								var added = 0;
+								for(var f in feature.properties){
+									if(f != "Name" && f!="name" && f!="title" && f!="other_tags" && (typeof feature.properties[f]==="number" || (typeof feature.properties[f]==="string" && feature.properties[f].length > 0))){
+										popup += (added > 0 ? '<br />':'')+'<strong>'+f+':</strong> '+(typeof feature.properties[f]==="string" && feature.properties[f].indexOf("http")==0 ? '<a href="'+feature.properties[f]+'" target="_blank">'+feature.properties[f]+'</a>' : feature.properties[f])+'';
+										added++;
+									}
+								}
+							}
+							if(layers[id].owner == "osm") popup += '<p class="edit">Something not quite right? <a href="http://www.openstreetmap.org/edit?pk_campaign=odileeds-edit'+(feature.geometry.type == "Point" ? '&node=%osm_id%':'')+(feature.geometry.type == "Polygon" ? '&way=%osm_way_id%' : '')+'#map=%Zoom%/%Latitude%/%Longitude%">Help improve the data on OpenStreetMap</a>.</p>';
+						}
+						//popup = popup.replace(new RegExp(/\%IF ([^\s]+) (.*) ENDIF\%/,"g"),function(str,p1,p2){ return (feature.properties[p1] && feature.properties[p1] != "N/a" ? p2 : ''); });
+						popup = popup.replace(/\%IF ([^\s]+) (.*) ENDIF\%/g,function(str,p1,p2){ return (feature.properties[p1] && feature.properties[p1] != "N/a" ? p2 : ''); });
+						// Loop over properties and replace anything
+						for(p in feature.properties){
+							while(popup.indexOf("%"+p+"%") >= 0){
+								popup = popup.replace("%"+p+"%",feature.properties[p] || "?");
+							}
+						}
+						popup = popup.replace(/%Latitude%/g,(feature.properties.centroid ? feature.properties.centroid.latitude : (feature.geometry.coordinates ? feature.geometry.coordinates[1] : '')));
+						popup = popup.replace(/%Longitude%/g,(feature.properties.centroid ? feature.properties.centroid.longitude : (feature.geometry.coordinates ? feature.geometry.coordinates[0] : '')));
+						popup = popup.replace(/%Zoom%/g,_obj.zoom||18);
+						popup = popup.replace(/%type%/g,feature.geometry.type.toLowerCase());
+						// Replace any remaining unescaped parts
+						popup = popup.replace(/%[^\%]+%/g,"?");
+					}
+					return popup;
+				}
+				function onEachFeature(feature, layer) {
+					popup = popuptext(feature);
+					if(popup) layer.bindPopup(popup);
+				}
+				var customicon = makeMarker(layers[id].colour);
 				// Set a default colour
 				if(!layers[id].colour) layers[id].colour = "#F9BC26";
-
-				layers[id].originalcolour = layers[id].colour;
-				layers[id]._attr = (this.anchor.layers && this.anchor.layers[id] ? this.anchor.layers[id] : {});
-				if(layers[id]._attr && layers[id]._attr.colour) layers[id].colour = '#'+layers[id]._attr.colour;
-				if(layers[id]._attr && layers[id]._attr.color) layers[id].colour = '#'+layers[id]._attr.color;
-				
-				if(this.layers[id].leaflet) this.layers[id].leaflet.remove();
-
-				var customicon = makeMarker(layers[id].colour);
-				var _obj = this;
-
 				var geoattrs = {
 					'style': { "color": layers[id].colour, "weight": 2, "opacity": 0.65 },
-					'pointToLayer': function(geoJsonPoint, latlng){ return L.marker(latlng,{icon: customicon}); },
-					'onEachFeature': function(feature, layer){
-						var popup = popuptext(feature,{'id':id,'this':_obj});
-						if(popup) layer.bindPopup(popup);
-					}
+					'pointToLayer': function(geoJsonPoint, latlng) { return L.marker(latlng,{icon: customicon}); },
+					'onEachFeature': onEachFeature
 				};
 				// Is this a chloropleth layer?
 				// If it is we work out the scale and then change the style to a function
@@ -635,40 +639,9 @@
 				if(layers[id].format && layers[id].format.type == "chloropleth"){
 					var min = 1e100;
 					var max = -1e100;
-					var key =  'VALUE';
-
-					// Do we have a bunch of keys?
-					if(layers[id].format.keys){
-						// Use the first key
-						key = layers[id].format.keys[0];
-						// If the URL string has defined a key to use, use that.
-						if(this.anchor.layers && this.anchor.layers[id].key){
-							for(var k in layers[id].format.keys){
-								if(typeof layers[id].format.keys[k]==="string"){
-									if(layers[id].format.keys[k]==this.anchor.layers[id].key) key = this.anchor.layers[id].key;
-								}else if(typeof layers[id].format.keys[k].key==="string"){
-									if(layers[id].format.keys[k].key==this.anchor.layers[id].key) key = this.anchor.layers[id].key;
-								}
-							}
-						}
-					}
-					// If we have explicitly set the key, use that
-					if(layers[id].format.key) key = layers[id].format.key;
-
-					layers[id]._attr.key = key;
-
-					for(i = 0; i < layers[id].data.features.length; i++){
-						if(typeof key==="string"){
-							if(layers[id].data.features[i].properties[key] == parseFloat(layers[id].data.features[i].properties[key])) layers[id].data.features[i].properties[key] = parseFloat(layers[id].data.features[i].properties[key]);
-							v = layers[id].data.features[i].properties[key];
-						}else if(typeof key.key==="string"){
-							if(layers[id].data.features[i].properties[key.key] == parseFloat(layers[id].data.features[i].properties[key.key])) layers[id].data.features[i].properties[key.key] = parseFloat(layers[id].data.features[i].properties[key.key]);
-							v = layers[id].data.features[i].properties[key.key];
-						}
-
-						if(typeof layers[id]._attr.key.convert==="object"){
-							if(typeof layers[id]._attr.key.convert[v]==="number") v = layers[id]._attr.key.convert[v];
-						}
+					var key =  layers[id].format.key || 'VALUE';
+					for(var i = 0; i < layers[id].data.features.length; i++){
+						v = layers[id].data.features[i].properties[key];
 						if(typeof v==="number"){
 							min = Math.min(v,min);
 							max = Math.max(v,max);
@@ -677,20 +650,15 @@
 					var inverse = (layers[id].format.inverse ? true : false);
 					geoattrs.style = function(feature){
 						if(feature.geometry.type == "Polygon" || feature.geometry.type == "MultiPolygon"){
-							var val = "";
-							var k = "";
-							if(typeof key==="string") k = key;
-							else if(typeof key.key==="string") k = key.key;
-							if(typeof feature.properties[k]==="number") val = feature.properties[k];
-							if(typeof feature.properties[k]==="string" && layers[id]._attr.key.convert && layers[id]._attr.key.convert[feature.properties[k]] && typeof layers[id]._attr.key.convert[feature.properties[k]]==="number") val = layers[id]._attr.key.convert[feature.properties[k]];
-							if(typeof val==="number"){
-								var f = (val-min)/(max-min);
+							var v = 0;
+							if(typeof feature.properties[key]==="number"){
+								var f = (feature.properties[key]-min)/(max-min);
 								if(inverse) f = 1-f;
 								v = (f*0.6 + 0.2);
 							}
 							return { "color": layers[id].colour, "weight": 0.5, "opacity": 0.65,"fillOpacity": v };
-						}else return { "color": layers[id].colour };
-					};
+						}else return { "color": layers[id].colour }
+					}
 				}
 				if(layers[id].data){
 					if(!layers[id].data.crs && layers[id].data.features[0].geometry.coordinates[0] > 300000 && layers[id].data.features[0].geometry.coordinates[1] > 300000){
@@ -700,7 +668,7 @@
 					if(layers[id].data.crs){
 						if(layers[id].data.crs.properties && layers[id].data.crs.properties.name=="EPSG:27700"){
 							geoattrs.coordsToLatLng = OSGridToLatLon;
-							this.log.info('Add conversion from OSGrid');
+							this.log('Add conversion from OSGrid')
 						}
 					}
 				}
@@ -718,10 +686,10 @@
 					});
 					// Build marker list
 					var markerList = [];
-					for(i = 0; i < layers[id].data.features.length; i++){
+					for(var i = 0; i < layers[id].data.features.length; i++){
 						c = layers[id].data.features[i].geometry.coordinates;
 						marker = L.marker([c[1],c[0]],{icon: customicon});
-						marker.bindPopup(popuptext(layers[id].data.features[i],{'zoom':this.zoom,'id':id,'this':this}));
+						marker.bindPopup(popuptext(layers[id].data.features[i]));
 						markerList.push(marker);
 					}
 
@@ -731,20 +699,10 @@
 					this.layers[id].leaflet = L.geoJSON(layers[id].data,geoattrs);
 				}
 				this.layers[id].leaflet.addTo(this.map);
-
-				this.updateTitle(id);
+				//updateMap();
 			}
 			return this;
 		}
-		this.updateTitle = function(id){
-			title = layers[id] ? layers[id].name||id : id;
-			if(layers[id]._attr && layers[id]._attr.key) title += ': '+(typeof layers[id]._attr.key==="string" ? layers[id]._attr.key : (layers[id]._attr.key.title||layers[id]._attr.key.key));
-
-			// Update layer properties
-			this.layerlookup[id].find('.heading').html(title);
-
-		}
-
 		var tooltip = L.DomUtil.get('tooltip');
 		function addTooltip (e) {
 			L.DomEvent.on(document, 'mousemove', moveTooltip);
@@ -767,9 +725,9 @@
 		}
 
 		this.changeLayerID = function(id,id2){
-			this.log.message('changeLayerID',id,id2);
+			this.log('changeLayerID',id,id2)
 			if(id==id2){
-				this.log.message('No need to change name');
+				this.log('No need to change name')
 				return this;
 			}
 			if(layers[id]){
@@ -783,27 +741,27 @@
 					// Update the ID of the layer in the list
 					//BLAHthis.layerlookup[id].attr('id',id2);
 				}else{
-					this.log.warning('A layer with the ID '+id2+' already exists. Cowardly refusing to re-ID '+id);
+					this.log('A layer with the ID '+id2+' already exists. Cowardly refusing to re-ID '+id);
 				}
 			}else{
-				this.log.warning('No layer '+id+' to re-ID');
+				this.log('No layer '+id+' to re-ID');
 			}
 			return this;
-		};
+		}
 
 		this.finishLoadingLayers = function(){
-			this.log.message('finishLoadingLayers',this,this.layerstoload,this.src.length,this.srcloaded);
+			this.log('finishLoadingLayers',this,this.layerstoload,this.src.length,this.srcloaded)
 			if(this.src.length > 0 && this.srcloaded < this.src.length) return;
 			if(layers){
 				this.layersloaded = true;
 				for(var i = this.layerstoload.length-1; i >= 0; i--){
-					this.log.message('loadLayer',i,this.layerstoload[i]);
+					this.log('loadLayer',i,this.layerstoload[i])
 					this.loadLayer(this.layerstoload[i]);
 					this.layerstoload.pop();
 				}
 			}
 			return this;
-		};
+		}
 
 		function getCredit(l,t){
 			var str = "";
@@ -821,7 +779,7 @@
 		
 		function makeLicenceString(l){
 			var str = "";
-			if(typeof l.licence==="string") str = " (" + l.licence.replace(/\(([^\)]*)\)/,function(m,p1){ return " "+p1; }) + ")";
+			if(typeof l.licence==="text") str = " (" + l.licence.replace(/\(([^\)]*)\)/,function(m,p1){ return " "+p1; }) + ")";
 			else if(typeof l.licence==="object") str = " ("+(l.licence.url ? '<a href="'+l.licence.url+'">':'')+l.licence.text+(l.licence.url ? '</a>':'')+")";
 			return str;
 		}
@@ -839,10 +797,10 @@
 				}
 			}
 			return out;
-		}
+		};
 
 		this.loadLayerData = function(id){
-			this.log.message('loadLayerData',id);
+			this.log('loadLayerData',id)
 			if(!layers[id]) return this;
 
 			if(!layers[id].metadata) return this;
@@ -865,9 +823,9 @@
 				}
 			});
 			return this;
-		};
+		}
 
-		this.loadLayer = function(id,attr){
+		this.loadLayer = function(id){
 			if(!this.layersloaded){ this.layerstoload.push(id); return; }
 			if(!layers[id]){ layers[id] = {}; }
 			if(!this.layers[id]){ this.layers[id] = {'active':false}; }
@@ -876,15 +834,15 @@
 				// Update color of layer
 				this.setLayerColours(id);
 				if(!this.layerlookup) this.layerlookup = {};
-				this.log.message('loadLayer',id,this.layerlookup[id],layers,this.layers);
+				this.log('loadLayer',id,this.layerlookup[id],layers,this.layers)
 				if(!this.layerlookup[id]){
 					var el = document.createElement('li');
 					el.setAttribute('class','loading');
 					el.setAttribute('data-id',id);
-					el.innerHTML = '<a href="#" class="heading padding" tabindex="0">'+(layers[id] ? layers[id].name||id : id)+'<span class="loading">| loading...</span></a><div class="nav padding">'+(layers[id].edit ? '<a href="#" class="edit" title="Edit this layer">'+getIcon('edit',layers[id].textcolor)+'</a>':'')+'<a href="#" class="info" title="Show information about this layer">'+getIcon('info',layers[id].textcolor)+'</a><a href="#" class="fit" title="Change the map view to fit this layer">'+getIcon('fit',layers[id].textcolor)+'</a><a href="#" class="toggle" title="Toggle layer visibility">'+getIcon('hide',layers[id].textcolor)+'</a>'+'<a href="#" class="remove" title="Remove this layer">'+getIcon('remove',layers[id].textcolor)+'</a></div><div class="description"><div class="keys"></div><div class="padding">'+(layers[id].desc ? layers[id].desc:'')+'<p class="credit"><a href="'+layers[id].url+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p></div><div class="download"></div></div>';
+					el.innerHTML = '<a href="#" class="heading padding" tabindex="0">'+(layers[id] ? layers[id].name||id : id)+'<span class="loading">| loading...</span></a><div class="nav padding">'+(layers[id].edit ? '<a href="#" class="edit" title="Edit this layer">'+getIcon('edit',layers[id].textcolor)+'</a>':'')+'<a href="#" class="info" title="Show information about this layer">'+getIcon('info',layers[id].textcolor)+'</a><a href="#" class="fit" title="Change the map view to fit this layer">'+getIcon('fit',layers[id].textcolor)+'</a><a href="#" class="toggle" title="Toggle layer visibility">'+getIcon('hide',layers[id].textcolor)+'</a>'+'<a href="#" class="remove" title="Remove this layer">'+getIcon('remove',layers[id].textcolor)+'</a></div><div class="description"><div class="padding">'+(layers[id].desc ? layers[id].desc:'')+'<p class="credit"><a href="'+layers[id].url+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p></div><div class="download"></div></div>';
 					this.layerlookup[id] = S(this.target.find('.layers ul')[0].appendChild(el));
 
-					this.log.message('layerlookup',JSON.parse(JSON.stringify(this.layerlookup)));
+					this.log('layerlookup',JSON.parse(JSON.stringify(this.layerlookup)));
 					//this.target.find('.layers ul').append('<li id="'+id+'" class="loading"><a href="#" class="heading padding" tabindex="0">'+(layers[id] ? layers[id].name||id : id)+'<span class="loading">| loading...</span></a><div class="nav padding">'+(layers[id].edit ? '<a href="#" class="edit" title="Edit this layer">'+getIcon('edit',layers[id].textcolor)+'</a>':'')+'<a href="#" class="info" title="Show information about this layer">'+getIcon('info',layers[id].textcolor)+'</a><a href="#" class="fit" title="Change the map view to fit this layer">'+getIcon('fit',layers[id].textcolor)+'</a><a href="#" class="toggle" title="Toggle layer visibility">'+getIcon('hide',layers[id].textcolor)+'</a>'+'<a href="#" class="remove" title="Remove this layer">'+getIcon('remove',layers[id].textcolor)+'</a></div><div class="description"><div class="padding">'+(layers[id].desc ? layers[id].desc:'')+'<p class="credit"><a href="'+layers[id].url+'">'+getCredit(layers[id])+'</a>'+makeLicenceString(layers[id])+'</p></div><div class="download"></div></div></li>');
 					// Show/hide the layer menu
 					this.layerlookup[id].find('.heading').on('focus',function(e){
@@ -925,7 +883,7 @@
 						e.preventDefault();
 						_obj.startEditLayer(e.data.id);
 					});
-					this.layerlookup[id].find('.toggle').on('click',{id:id},function(e){
+					this.layerlookup[id].find('.toggle').on('click',{id,id},function(e){
 						e.stopPropagation();
 						e.preventDefault();
 						_obj.toggleLayer(e.data.id);
@@ -937,7 +895,7 @@
 						_obj.fitLayer(e.data.id);
 					});
 				}
-				this.log.message('loadLayer2',id,this.layerlookup);
+				this.log('loadLayer2',id,this.layerlookup)
 				if(typeof layers[id].geojson==="object"){
 					this.layerlookup[id].removeClass('loading').find('.loading').remove();
 					if(layers[id]){
@@ -980,160 +938,104 @@
 				}
 			}
 			return this;
-		};
+		}
 
-		this.addTopicSearch = function(){
-			// Make topics
-			if(typeof this.topics==="object" && this.target.find('.layer-search .topics').length < 1){
-				this.target.find('.layer-search form').before('<ul class="topics"></ul>');
-				var ul = "";
-				var i;
-				// Temporary hack while format changing
-				if(typeof this.topics.length==="undefined"){
-					var temp = JSON.parse(JSON.stringify(this.topics));
-					this.topics = [];
-					for(i in temp) this.topics.push({'title':i,'icon':temp[i]});
-				}
-				for(i = 0 ; i < this.topics.length; i++) ul += '<li data="'+i+'" class="" title="Topic: '+this.topics[i].title+'"><a href="#" style="'+(this.topics[i].colour ? 'color:'+setHexTextColor(this.topics[i].colour)+';' : '')+(this.topics[i].colour ? 'background-color:'+this.topics[i].colour+';' : '')+'"><img src="'+this.topics[i].icon+'" alt="Icon for '+this.topics[i].title+'" /><br />'+this.topics[i].title+'</a></li>';
-				if(ul) this.target.find('.topics').html(ul);
-				else this.target.find('.topics').remove();
-				S('.topics li a').on('click',{me:this},function(e){
-					var el = S(e.currentTarget);
-					var inactive = e.data.me.target.find('.inactive').length;
-					if(el.parent().hasClass('active')){
-						// This topic is currently the only active one so we select all
-						el.parent().removeClass('active');
-						this.parent().removeClass('inactive');
-						e.data.me.topic = -1;
-					}else{
-						// We want to select only this topic
-						this.parent().addClass('inactive');
-						el.parent().addClass('active').removeClass('inactive');
-						e.data.me.topic = parseInt(S(e.currentTarget).parent().attr('data'));
-					}
-					e.data.me.layerSearchResults((e.data.me.searchstring||""));
-				});
-			}
+		function niceSize(b){
+			if(b > 1e12) return (b/1e12).toFixed(1)+" TB";
+			if(b > 1e9) return (b/1e9).toFixed(1)+" GB";
+			if(b > 1e6) return (b/1e6).toFixed(1)+" MB";
+			if(b > 1e3) return (b/1e3).toFixed(1)+" kB";
+			return (b)+" bytes";
+		}
 
-			return this;
-		};
 		
-		this.layerSearchResults = function(name){
+		function processResult(name){
 			var html = "";
-			var tmp = [];
-			var i,k,idx,dist,n,ok,t;
-			this.log.message('layerSearchResults',name,this.topic);
-			this.searchstring = name;
+			var tmp = new Array();
+			_obj.log('processResult',name)
 
-			if(this.target.find('.layer-search .searchresults').length < 1) this.target.find('.layer-search form').after('<div class="searchresults"></div>');
+			if(_obj.target.find('.layer-search .searchresults').length < 1) _obj.target.find('.layer-search form').after('<div class="searchresults"></div>');
 
-			if(typeof name==="string"){
+			if(typeof name==="string" && name.length > 0){
 				name = name.toLowerCase();
-				var lat = parseFloat(this.anchor.latitude);
-				var lon = parseFloat(this.anchor.longitude);
+				var lat = parseFloat(_obj.anchor.latitude);
+				var lon = parseFloat(_obj.anchor.longitude);
 				var p = L.latLng(lat,lon);
 
 				// Loop over layers and work out a ranking
-				for(i in layers){
-					if(layers[i]){
-						dist = 100000;
-						ok = true;
-						// Create an empty rank for this layer
-						if(layers[i].name){
-
-							this.layers[i].rank = 0;
-
-							// Do we have a topic?
-							if(this.topic >= 0){
-								ok = false;
-								if(typeof layers[i].topics!=="undefined"){
-									for(t in layers[i].topics){
-										if(layers[i].topics[t] == this.topics[this.topic].title){
-											ok = true;
-											this.layers[i].rank = 1;
-										}
-									}
-								}
+				for(var i in layers){
+					var dist = 100000;
+					if(layers[i].name){
+						_obj.layers[i].rank = 0;
+						var idx = layers[i].name.toLowerCase().indexOf(name);
+						if(idx >= 0 && !_obj.layers[i].active){
+							if(idx==0) _obj.layers[i].rank += 10;
+							_obj.layers[i].rank += 1/(Math.abs(layers[i].name.length-name.length)+1);
+						}
+						if(layers[i].desc){
+							var idx = layers[i].desc.toLowerCase().indexOf(name);
+							if(idx >= 0 && !_obj.layers[i].active) _obj.layers[i].rank++;
+						}
+						if(layers[i].credit && layers[i].credit.src){
+							var idx = layers[i].credit.src.toLowerCase().indexOf(name);
+							if(idx >= 0 && !_obj.layers[i].active) _obj.layers[i].rank++;
+						}
+						if(layers[i].keywords){
+							var kw = layers[i].keywords.split(/,/);
+							var idx;
+							for(var k = 0; k < kw.length; k++){
+								idx = kw[k].toLowerCase().indexOf(name);
+								if(idx >= 0 && !_obj.layers[i].active) _obj.layers[i].rank++;
 							}
-
-							if(ok){
-								this.layers[i].rank = 0;
-								idx = layers[i].name.toLowerCase().indexOf(name);
-								if(idx >= 0 && !this.layers[i].active){
-									if(idx==0) this.layers[i].rank += 10;
-									this.layers[i].rank += 1/(Math.abs(layers[i].name.length-name.length)+1);
+						}
+						_obj.layers[i].id = i;
+						if(_obj.layers[i].rank > 0){
+							if(layers[i].centre && layers[i].centre.length == 2){
+								// Calculate the distance
+								try {
+									dist = p.distanceTo(layers[i].centre);
+								}catch (err){
+			
 								}
-								if(layers[i].desc){
-									idx = layers[i].desc.toLowerCase().indexOf(name);
-									if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
-								}
-								if(layers[i].credit && layers[i].credit.src){
-									idx = layers[i].credit.src.toLowerCase().indexOf(name);
-									if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
-								}
-								if(layers[i].keywords){
-									var kw = layers[i].keywords.split(/,/);
-									for(k = 0; k < kw.length; k++){
-										idx = kw[k].toLowerCase().indexOf(name);
-										if(idx >= 0 && !this.layers[i].active) this.layers[i].rank++;
-									}
-								}
-								this.layers[i].id = i;
+								_obj.layers[i].rank += Math.min(10,(1000/dist));
 							}
-							if(ok){
-								if(this.layers[i].rank > 0){
-									if(layers[i].centre && layers[i].centre.length == 2){
-										// Calculate the distance
-										try {
-											dist = p.distanceTo(layers[i].centre)/1000;
-										}catch (err){
-
-										}
-										this.layers[i].rank += Math.min(10,10/dist);
-									}
-									tmp.push(this.layers[i]);
-								}
-							}
+							tmp.push(_obj.layers[i]);
 						}
 					}
 				}
-				tmp = sortBy(tmp,'rank');
-				n = tmp.length;
+				var tmp = sortBy(tmp,'rank');
+				//var n = Math.min(tmp.length,8);
+				var n = tmp.length;
 			}else{
 
 				// Loop over layers and work out a ranking
-				for(i in layers){
-					if(layers[i].name && !this.layers[i].active){
-						this.layers[i].id = i;
-						this.layers[i].namelc = layers[i].name.toLowerCase();
-						tmp.push(this.layers[i]);
+				for(var i in layers){
+					if(layers[i].name && !_obj.layers[i].active){
+						_obj.layers[i].id = i;
+						_obj.layers[i].namelc = layers[i].name.toLowerCase();
+						tmp.push(_obj.layers[i]);
 					}
 				}
-				tmp = sortBy(tmp,'namelc',true);
-				n = tmp.length;
+				var tmp = sortBy(tmp,'namelc',true);
+				var n = tmp.length;
 			}
 			if(tmp.length > 0){
-				this.target.find('.layer-search .searchresults li').off('click');
+				_obj.target.find('.layer-search .searchresults li').off('click');
 				html = "<ol>";
-				var l,tcredit;
-				for(i = 0; i < n; i++){
+				var l;
+				for(var i = 0; i < n; i++){
 					l = layers[tmp[i].id];
 					tcredit = getCredit(l,"src");
 					html += '<li data-id="'+tmp[i].id+'" '+(i==0 ? ' class="selected"':'')+'><a href="#" class="padding name">'+l.name+(tcredit ? ' ('+tcredit+(l.size ? '; '+niceSize(l.size):'')+')' : '')+'</a></li>';
 				}
 				html += "</ol>";
 			}
-			this.target.find('.layer-search .searchresults').html(html);
-			var li = this.target.find('.layer-search .searchresults li a');
-			for(i = 0 ; i < li.e.length ; i++){
-				S(li.e[i]).on('click',{"callback":selectName,"me":this},function(e){
-					e.preventDefault();
-					e.data.callback.call(e.data.me,{'selected':this.parent()});
-				});
-			}
+			_obj.target.find('.layer-search .searchresults').html(html);
+			var li = _obj.target.find('.layer-search .searchresults li a');
+			for(var i = 0 ; i < li.e.length ; i++) S(li.e[i]).on('click',function(e){ e.preventDefault(); selectName(this.parent()); });
 
-			return this;
-		};
+			return;
+		}
 
 		function getIcon(icon,colour){
 			var icons = {
@@ -1145,13 +1047,14 @@
 				'info':'<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path style="fill:%COLOUR%" d="M 16 0 A 16 16 0 0 0 0 16 A 16 16 0 0 0 16 32 A 16 16 0 0 0 32 16 A 16 16 0 0 0 16 0 z M 17.087891 5.4433594 C 17.405707 5.4433594 17.696853 5.483046 17.955078 5.5625 C 18.223235 5.641954 18.451922 5.7610139 18.640625 5.9199219 C 18.829328 6.0788298 18.970994 6.2715698 19.070312 6.5 C 19.179566 6.7284301 19.236328 6.9911102 19.236328 7.2890625 C 19.236328 7.6068785 19.179565 7.8960715 19.070312 8.1542969 C 18.961062 8.4025907 18.813703 8.6161505 18.625 8.7949219 C 18.436297 8.9637616 18.20761 9.0979486 17.939453 9.1972656 C 17.681227 9.2866511 17.395775 9.3300781 17.087891 9.3300781 C 16.809803 9.3300781 16.549076 9.2866516 16.300781 9.1972656 C 16.052488 9.1078798 15.833234 8.9831268 15.644531 8.8242188 C 15.455828 8.6553791 15.300822 8.4569458 15.181641 8.2285156 C 15.072389 7.9901537 15.019531 7.7217806 15.019531 7.4238281 C 15.019531 7.1060122 15.072387 6.8282057 15.181641 6.5898438 C 15.300822 6.3415501 15.455828 6.1336835 15.644531 5.9648438 C 15.833234 5.7960041 16.052488 5.6655579 16.300781 5.5761719 C 16.549076 5.4867855 16.809803 5.4433594 17.087891 5.4433594 z M 18.609375 9.9902344 L 16.402344 20.076172 C 16.392444 20.135762 16.367855 20.24913 16.328125 20.417969 C 16.298334 20.576877 16.258644 20.765876 16.208984 20.984375 C 16.169259 21.202874 16.123879 21.437253 16.074219 21.685547 C 16.024563 21.933841 15.979183 22.166268 15.939453 22.384766 C 15.899727 22.603265 15.865728 22.797958 15.835938 22.966797 C 15.806148 23.135637 15.791016 23.249004 15.791016 23.308594 C 15.791016 23.447639 15.815574 23.59695 15.865234 23.755859 C 15.914894 23.904834 15.994268 24.039022 16.103516 24.158203 C 16.222697 24.277385 16.377703 24.377581 16.566406 24.457031 C 16.765041 24.536491 17.012595 24.576172 17.310547 24.576172 C 17.399937 24.576172 17.515253 24.564812 17.654297 24.544922 C 17.793342 24.525052 17.940701 24.496761 18.099609 24.457031 C 18.258517 24.417305 18.428651 24.371926 18.607422 24.322266 C 18.786193 24.272606 18.960066 24.212098 19.128906 24.142578 L 19.619141 24.142578 L 19.619141 25.439453 C 19.241735 25.657953 18.844867 25.841259 18.427734 25.990234 C 18.020532 26.129279 17.617973 26.238909 17.220703 26.318359 C 16.833364 26.407753 16.466753 26.466294 16.119141 26.496094 C 15.77153 26.535824 15.469162 26.556641 15.210938 26.556641 C 14.764009 26.556641 14.380315 26.482959 14.0625 26.333984 C 13.744684 26.185009 13.482005 25.999749 13.273438 25.78125 C 13.074803 25.552821 12.925492 25.31096 12.826172 25.052734 C 12.726854 24.784577 12.677734 24.535071 12.677734 24.306641 C 12.677734 24.028553 12.71173 23.705366 12.78125 23.337891 C 12.86071 22.970416 12.945766 22.564115 13.035156 22.117188 L 14.912109 13.580078 C 14.961773 13.37151 14.942906 13.209025 14.853516 13.089844 C 14.764126 12.970663 14.631896 12.870466 14.453125 12.791016 L 12.380859 11.867188 L 12.380859 10.839844 L 18.609375 9.9902344 z " /></svg>',
 				'fit':'<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path style="fill:%COLOUR%" d="M 0,12 L0,0 12,0 12,4 6,4 12,10 10,12 4,6 4,12 M20,0 L 32,0 32,12 28,12 28,6 22,12 20,10 26,4 20,4 20,0 M 20,32 L20,28 26,28 20,22 22,20 28,26 28,20 32,20, 32,32 20,32 M 12,32 L 0,32 0,20 4,20 4,26 10,20 12,22 6,28 12,28 12,32" /></svg>'
 
-			};
+			}
 			return icons[icon].replace(/%COLOUR%/g,(colour||"black"));
 		}
 		
 		// Sort the data
 		function sortBy(arr,i,rev){
-			var order = 1;
+			yaxis = i;
+			order = 1;
 			if(typeof rev==="boolean") order = (rev ? -1 : 1); 
 			return arr.sort(function (a, b) {
 				return a[i] < b[i] ? order : -order;
@@ -1164,6 +1067,7 @@
 
 	// adapted from http://www.dorcus.co.uk/carabus/ngr_ll.html
 	function OSGridToLatLon(coo) {
+console.log('OSGridToLatLon',coo,ll)
 		var coord = new GridRef(coo[0],coo[1]);
 		var ll = coord.latlon();
 		return L.latLng(ll[0],ll[1]);
@@ -1173,16 +1077,16 @@
 		var north = coo[1];
 		// converts NGR easting and nothing to lat, lon.
 		// input metres, output radians
-		//var nX = Number(north);
-		//var eX = Number(east);
-		var a = 6377563.396; // OSGB semi-major
-		var b = 6356256.91; // OSGB semi-minor
-		var e0 = 400000; // OSGB easting of false origin
-		var n0 = -100000; // OSGB northing of false origin
-		var f0 = 0.9996012717; // OSGB scale factor on central meridian
-		var e2 = 0.0066705397616; // OSGB eccentricity squared
-		var lam0 = -0.034906585039886591; // OSGB false east
-		var phi0 = 0.85521133347722145; // OSGB false north
+		var nX = Number(north);
+		var eX = Number(east);
+		a = 6377563.396; // OSGB semi-major
+		b = 6356256.91; // OSGB semi-minor
+		e0 = 400000; // OSGB easting of false origin
+		n0 = -100000; // OSGB northing of false origin
+		f0 = 0.9996012717; // OSGB scale factor on central meridian
+		e2 = 0.0066705397616; // OSGB eccentricity squared
+		lam0 = -0.034906585039886591; // OSGB false east
+		phi0 = 0.85521133347722145; // OSGB false north
 		var af0 = a * f0;
 		var bf0 = b * f0;
 		var n = (af0 - bf0) / (af0 + bf0);
@@ -1204,7 +1108,7 @@
 		var XII = (clatm1 / (120 * Math.pow(nu, 5))) * (5 + (28 * tlat2) + (24 * tlat4));
 		var XIIA = clatm1 / (5040 * Math.pow(nu, 7)) * (61 + (662 * tlat2) + (1320 * tlat4) + (720 * tlat6));
 		var lambdap = (lam0 + (Et * X) - ((Et * Et * Et) * XI) + (Math.pow(Et, 5) * XII) - (Math.pow(Et, 7) * XIIA));
-		return L.latLng(phip * 180 / Math.PI, lambdap * 180 / Math.PI);
+		return L.latLng(phip * 180 / Math.PI, lambdap * 180 / Math.PI)
 	}
 
 	function Marc(bf0, n, phi0, phi) {
@@ -1225,138 +1129,6 @@
 			phi1 = phi2;
 		}
 		return (phi2);
-	}
-
-
-	function niceSize(b){
-		if(b > 1e12) return (b/1e12).toFixed(1)+" TB";
-		if(b > 1e9) return (b/1e9).toFixed(1)+" GB";
-		if(b > 1e6) return (b/1e6).toFixed(1)+" MB";
-		if(b > 1e3) return (b/1e3).toFixed(1)+" kB";
-		return (b)+" bytes";
-	}
-	
-	function setHexTextColor(hex){
-		var L1 = getL(hex);
-		var Lb = getL('#000000');
-		var Lw = getL('#ffffff');
-		var rb = (Math.max(L1, Lb) + 0.05) / (Math.min(L1, Lb) + 0.05);
-		var rw = (Math.max(L1, Lw) + 0.05) / (Math.min(L1, Lw) + 0.05);
-		return (rb > rw ? '#000000':'#FFFFFF');
-	}
-
-	function getL(c) {
-		return (0.2126 * getsRGB(c.substr(1, 2)) + 0.7152 * getsRGB(c.substr(3, 2)) + 0.0722 * getsRGB(c.substr(-2)));
-	}
-
-	function getRGB(c) {
-		try { c = parseInt(c, 16); } catch (err) { c = false; }
-		return c;
-	}
-
-	function getsRGB(c) {
-		c = getRGB(c) / 255;
-		c = (c <= 0.03928) ? c / 12.92 : Math.pow(((c + 0.055) / 1.055), 2.4);
-		return c;
-	}
-
-	function makeMarker(colour){
-		return L.divIcon({
-			'className': '',
-			'html':	'<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" width="7.0556mm" height="11.571mm" viewBox="0 0 25 41.001" id="svg2" version="1.1"><g id="layer1" transform="translate(1195.4,216.71)"><path style="fill:%COLOUR%;fill-opacity:1;fill-rule:evenodd;stroke:#ffffff;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none" d="M 12.5 0.5 A 12 12 0 0 0 0.5 12.5 A 12 12 0 0 0 1.8047 17.939 L 1.8008 17.939 L 12.5 40.998 L 23.199 17.939 L 23.182 17.939 A 12 12 0 0 0 24.5 12.5 A 12 12 0 0 0 12.5 0.5 z " transform="matrix(1,0,0,1,-1195.4,-216.71)" id="path4147" /><ellipse style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.428;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" id="path4173" cx="-1182.9" cy="-204.47" rx="5.3848" ry="5.0002" /></g></svg>'.replace(/%COLOUR%/,colour||"#000000"),
-			iconSize:	 [25, 41], // size of the icon
-			shadowSize:	 [41, 41], // size of the shadow
-			iconAnchor:	 [12.5, 41], // point of the icon which will correspond to marker's location
-			shadowAnchor: [12.5, 41],	// the same for the shadow
-			popupAnchor:	[0, -41] // point from which the popup should open relative to the iconAnchor
-		});
-	}
-
-	function clearResults(me){
-		// Zap search results
-		me.target.find('.layer-search .searchresults').html('');
-		return me;
-	}
-
-
-	// Select one of the options in the drop down list
-	function selectName(attr){
-		
-		this.log.message('selectName',this,attr);
-		// Get the ID from the DOM element's data-id attribute
-		// Use that to find the index that corresponds to in the "db" hash
-		var id = attr.selected.attr('data-id');
-		clearResults(this);
-		//this.log.message('Lookup',_obj.layerlookup,id,_obj.layerlookup[id]);
-		if(!this.layerlookup[id] || this.layerlookup[id].length <= 0){
-			this.target.find('.q')[0].value = '';
-			clearResults(this);
-			this.loadLayer(id);
-		}
-		this.target.find('.layer-search .close').trigger('click');
-	}
-	function popuptext(feature,attr){
-		// does this feature have a property named popupContent?
-		var popup = '';
-		var tags,bits;
-		var id = (attr.id||"");
-		if(!id) attr['this'].error('No ID provided');
-		if(feature.properties){
-			// If this feature has a default popup
-			// Convert "other_tags" e.g "\"ele:msl\"=>\"105.8\",\"ele:source\"=>\"GPS\",\"material\"=>\"stone\""
-			if(feature.properties.other_tags){
-				tags = feature.properties.other_tags.split(/,/);
-				for(var t = 0; t < tags.length; t++){
-					tags[t] = tags[t].replace(/\"/g,"");
-					bits = tags[t].split(/\=\>/);
-					if(bits.length == 2){
-						if(!feature.properties[bits[0]]) feature.properties[bits[0]] = bits[1];
-					}
-				}
-			}
-			if(feature.properties.popup){
-				popup = feature.properties.popup.replace(/\n/g,"<br />");
-			}else{
-				// If the layer has a default popup style
-				if(layers[id].popup){
-					popup = layers[id].popup;
-					if(typeof popup==="function") popup = popup(feature);
-				}else{
-					var title = '';
-					if(feature.properties.title || feature.properties.name || feature.properties.Name) title = (feature.properties.title || feature.properties.name || feature.properties.Name);
-					//if(!title) title = "Unknown name";
-					if(title) popup += '<h3>'+(title)+'</h3>';
-					var added = 0;
-					for(var f in feature.properties){
-						if(f != "Name" && f!="name" && f!="title" && f!="other_tags" && (typeof feature.properties[f]==="number" || (typeof feature.properties[f]==="string" && feature.properties[f].length > 0))){
-							popup += (added > 0 ? '<br />':'')+'<strong>'+f+':</strong> '+(typeof feature.properties[f]==="string" && feature.properties[f].indexOf("http")==0 ? '<a href="'+feature.properties[f]+'" target="_blank">'+feature.properties[f]+'</a>' : feature.properties[f])+'';
-							added++;
-						}
-					}
-				}
-				if(layers[id].owner == "osm") popup += '<p class="edit">Something not quite right? <a href="http://www.openstreetmap.org/edit?pk_campaign=odileeds-edit'+(feature.geometry.type == "Point" ? '&node=%osm_id%':'')+(feature.geometry.type == "Polygon" ? '&way=%osm_way_id%' : '')+'#map=%Zoom%/%Latitude%/%Longitude%">Help improve the data on OpenStreetMap</a>.</p>';
-			}
-			//popup = popup.replace(new RegExp(/\%IF ([^\s]+) (.*) ENDIF\%/,"g"),function(str,p1,p2){ return (feature.properties[p1] && feature.properties[p1] != "N/a" ? p2 : ''); });
-			popup = popup.replace(/\%IF ([^\s]+) (.*) ENDIF\%/g,function(str,p1,p2){ return (feature.properties[p1] && feature.properties[p1] != "N/a" ? p2 : ''); });
-			// Loop over properties and replace anything
-			for(var p in feature.properties){
-				if(feature.properties[p]){
-					while(popup.indexOf("%"+p+"%") >= 0){
-						popup = popup.replace("%"+p+"%",feature.properties[p] || "?");
-					}
-					while(popup.indexOf("{{"+p+"}}") >= 0){
-						popup = popup.replace("{{"+p+"}}",feature.properties[p] || "?");
-					}
-				}
-			}
-			popup = popup.replace(/%Latitude%/g,(feature.properties.centroid ? feature.properties.centroid.latitude : (feature.geometry.coordinates ? feature.geometry.coordinates[1] : '')));
-			popup = popup.replace(/%Longitude%/g,(feature.properties.centroid ? feature.properties.centroid.longitude : (feature.geometry.coordinates ? feature.geometry.coordinates[0] : '')));
-			popup = popup.replace(/%Zoom%/g,attr.zoom||18);
-			popup = popup.replace(/%type%/g,feature.geometry.type.toLowerCase());
-			// Replace any remaining unescaped parts
-			popup = popup.replace(/%[^\%]+%/g,"?");
-		}
-		return popup;
 	}
 
 	//--------------------------------------------------
@@ -1431,8 +1203,7 @@
 			var lambdaB = rad2deg(Math.atan(yB / xB));
 			var p = Math.sqrt((xB * xB) + (yB * yB));
 			var phiN = Math.atan(zB / (p * (1 - eSquared)));
-			var i,phiN1;
-			for(i = 1; i < 10; i++) {
+			for (var i = 1; i < 10; i++) {
 				v = a / (Math.sqrt(1 - eSquared * sinSquared(phiN)));
 				phiN1 = Math.atan((zB + (eSquared * v * Math.sin(phiN))) / p);
 				phiN = phiN1;
@@ -1441,12 +1212,12 @@
 			var phiB = rad2deg(phiN);
 		
 			return [phiB,lambdaB];
-		};
+		}
 		GridRef = function(easting,northing){
 			this.easting = easting;
 			this.northing = northing;
 			return this;
-		};
+		}
 
 		function toLatLon(easting,northing){
 			var a = airy1830.maj;
@@ -1460,7 +1231,19 @@
 			var M = 0.0;
 			var phiPrime = ((N - N0) / (a * OSGB_F0)) + phi0;
 			do {
-				M = (b * OSGB_F0) * (((1 + n + ((5.0 / 4.0) * n * n) + ((5.0 / 4.0) * n * n * n)) * (phiPrime - phi0)) - (((3 * n) + (3 * n * n) + ((21.0 / 8.0) * n * n * n)) * Math.sin(phiPrime - phi0) * Math.cos(phiPrime + phi0)) + ((((15.0 / 8.0) * n * n) + ((15.0 / 8.0) * n * n * n)) * Math.sin(2.0 * (phiPrime - phi0)) * Math.cos(2.0 * (phiPrime + phi0))) - (((35.0 / 24.0) * n * n * n) * Math.sin(3.0 * (phiPrime - phi0)) * Math.cos(3.0 * (phiPrime + phi0))));
+				M =
+					(b * OSGB_F0)
+						* (((1 + n + ((5.0 / 4.0) * n * n) + ((5.0 / 4.0) * n * n * n))
+							* (phiPrime - phi0))
+							- (((3 * n) + (3 * n * n) + ((21.0 / 8.0) * n * n * n))
+								* Math.sin(phiPrime - phi0)
+								* Math.cos(phiPrime + phi0))
+							+ ((((15.0 / 8.0) * n * n) + ((15.0 / 8.0) * n * n * n))
+								* Math.sin(2.0 * (phiPrime - phi0))
+								* Math.cos(2.0 * (phiPrime + phi0)))
+							- (((35.0 / 24.0) * n * n * n)
+								* Math.sin(3.0 * (phiPrime - phi0))
+								* Math.cos(3.0 * (phiPrime + phi0))));
 				phiPrime += (N - N0 - M) / (a * OSGB_F0);
 			} while ((N - N0 - M) >= 0.001);
 
@@ -1486,40 +1269,10 @@
 			if(SYS == "OSGB36" || SYS == "OS") return [this.osgb36.lat,this.osgb36.lng];
 			// Return the WGS84 latitude and longitude by default
 			return this.osgb36.WGS84();
-		};
-
+		}
 	})();	// Self-closing function
 
 
-	function Logger(inp){
-		if(!inp) inp = {};
-		this.logging = (inp.logging||false);
-		this.logtime = (inp.logtime||false);
-		this.id = (inp.id||"JS");
-		this.metrics = {};
-		return this;
-	}
-	Logger.prototype.error = function(){ this.log('ERROR',arguments); };
-	Logger.prototype.warning = function(){ this.log('WARNING',arguments); };
-	Logger.prototype.info = function(){ this.log('INFO',arguments); };
-	Logger.prototype.message = function(){ this.log('MESSAGE',arguments); };
-	Logger.prototype.log = function(){
-		if(this.logging || arguments[0]=="ERROR" || arguments[0]=="WARNING" || arguments[0]=="INFO"){
-			var args,args2,bold;
-			args = Array.prototype.slice.call(arguments[1], 0);
-			args2 = (args.length > 1 ? args.splice(1):"");
-			// Remove array if only 1 element
-			if(args2.length == 1) args2 = args2[0];
-			bold = 'font-weight:bold;';
-			if(console && typeof console.log==="function"){
-				if(arguments[0] == "ERROR") console.error('%c'+this.id+'%c: '+args[0],bold,'',args2);
-				else if(arguments[0] == "WARNING") console.warn('%c'+this.id+'%c: '+args[0],bold,'',args2);
-				else if(arguments[0] == "INFO") console.info('%c'+this.id+'%c: '+args[0],bold,'',args2);
-				else console.log('%c'+this.id+'%c: '+args[0],bold,'',args2);
-			}
-		}
-		return this;
-	};
 
 	// Add CommonGround as a global variable
 	window.DataMapper = DataMapper;
