@@ -1351,8 +1351,8 @@
 				}
 				if(layers[id].owner == "osm") popup += '<p class="edit">Something not quite right? <a href="http://www.openstreetmap.org/edit?pk_campaign=odileeds-edit'+(feature.geometry.type == "Point" ? '&node=%osm_id%':'')+(feature.geometry.type == "Polygon" ? '&way=%osm_way_id%' : '')+'#map=%Zoom%/%Latitude%/%Longitude%">Help improve the data on OpenStreetMap</a>.</p>';
 			}
-			//popup = popup.replace(new RegExp(/\%IF ([^\s]+) (.*) ENDIF\%/,"g"),function(str,p1,p2){ return (feature.properties[p1] && feature.properties[p1] != "N/a" ? p2 : ''); });
-			popup = popup.replace(/\%IF ([^\s]+) (.*) ENDIF\%/g,function(str,p1,p2){ return (feature.properties[p1] && feature.properties[p1] != "N/a" ? p2 : ''); });
+																																											  
+			popup = popup.replace(/\%IF ([^\s]+) (.*?) ENDIF\%/g,function(str,p1,p2){ return (feature.properties[p1] && feature.properties[p1] != "N/a" ? p2 : ''); });
 			// Loop over properties and replace anything
 			for(var p in feature.properties){
 				if(feature.properties[p]){
@@ -1369,7 +1369,7 @@
 			popup = popup.replace(/%Zoom%/g,attr.zoom||18);
 			popup = popup.replace(/%type%/g,feature.geometry.type.toLowerCase());
 			// Replace any remaining unescaped parts
-			popup = popup.replace(/%[^\%]+%/g,"?");
+			//popup = popup.replace(/%[^\%]+%/g,"?");
 		}
 		return popup;
 	}
