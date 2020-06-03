@@ -285,6 +285,9 @@ body.hasmessage .panel:last-child {
 }
 .datamapper .leaflet-popup-content .edit { font-size: 0.8em; border-top: 1px solid #999999; padding-top: 0.25em; }
 .datamapper .leaflet-popup-content strong { font-weight: 700; }
+.datamapper .leaflet-marker-icon.highlighted { z-index: 10000!important; }
+.datamapper .leaflet-marker-icon.highlighted svg { overflow: unset; }
+.datamapper .leaflet-marker-icon.highlighted svg path { stroke-width: 4!important; stroke-opacity:0.5!important; }
 .datamapper .searchresults { width: 100%; box-sizing: border-box; }
 .datamapper .searchresults ol { list-style: none; padding-left: 0px; text-align: left; margin: 0px; border-top: 0px; }
 .datamapper .searchresults ol:after { clear: both; }

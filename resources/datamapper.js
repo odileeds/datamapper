@@ -619,13 +619,28 @@
 
 				var customicon = makeMarker(layers[id].colour);
 				var _obj = this;
-
+				
 				var geoattrs = {
 					'style': { "color": layers[id].colour, "weight": 2, "opacity": 0.65 },
 					'pointToLayer': function(geoJsonPoint, latlng){ return L.marker(latlng,{icon: customicon}); },
 					'onEachFeature': function(feature, layer){
 						var popup = popuptext(feature,{'id':id,'this':_obj});
 						if(popup) layer.bindPopup(popup);
+						layer.on('mouseover',function(e){
+							if(this.feature.geometry.type=="Polygon" || this.feature.geometry.type=="MultiPolygon"){
+								this.setStyle({weight:4});
+								if(!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) this.bringToFront();
+							}else if(this.feature.geometry.type=="Point"){
+								S(e.target._icon).addClass('highlighted');
+							}
+						});
+						layer.on('mouseout',function(e){
+							if(this.feature.geometry.type=="Polygon" || this.feature.geometry.type=="MultiPolygon"){
+								_obj.layers[id].leaflet.resetStyle(e.target);
+							}else if(this.feature.geometry.type=="Point"){
+								S(e.target._icon).removeClass('highlighted');
+							}
+						});
 					}
 				};
 				// Is this a choropleth layer?
@@ -689,7 +704,7 @@
 								v = (f*0.6 + 0.2);
 							}
 							return { "color": layers[id].colour, "weight": 0.5, "opacity": 0.65,"fillOpacity": v };
-						}else return { "color": layers[id].colour };
+						}else return { "color": layers[id].colour, "stroke": layers[id].colour };
 					};
 				}
 				if(layers[id].data){
@@ -1263,7 +1278,7 @@
 	function makeMarker(colour){
 		return L.divIcon({
 			'className': '',
-			'html':	'<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" width="7.0556mm" height="11.571mm" viewBox="0 0 25 41.001" id="svg2" version="1.1"><g id="layer1" transform="translate(1195.4,216.71)"><path style="fill:%COLOUR%;fill-opacity:1;fill-rule:evenodd;stroke:#ffffff;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none" d="M 12.5 0.5 A 12 12 0 0 0 0.5 12.5 A 12 12 0 0 0 1.8047 17.939 L 1.8008 17.939 L 12.5 40.998 L 23.199 17.939 L 23.182 17.939 A 12 12 0 0 0 24.5 12.5 A 12 12 0 0 0 12.5 0.5 z " transform="matrix(1,0,0,1,-1195.4,-216.71)" id="path4147" /><ellipse style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.428;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" id="path4173" cx="-1182.9" cy="-204.47" rx="5.3848" ry="5.0002" /></g></svg>'.replace(/%COLOUR%/,colour||"#000000"),
+			'html':	'<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" width="7.0556mm" height="11.571mm" viewBox="0 0 25 41.001" id="svg2" version="1.1"><g id="layer1" transform="translate(1195.4,216.71)"><path style="fill:%COLOUR%;fill-opacity:1;fill-rule:evenodd;stroke:black;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none" d="M 12.5 0.5 A 12 12 0 0 0 0.5 12.5 A 12 12 0 0 0 1.8047 17.939 L 1.8008 17.939 L 12.5 40.998 L 23.199 17.939 L 23.182 17.939 A 12 12 0 0 0 24.5 12.5 A 12 12 0 0 0 12.5 0.5 z " transform="matrix(1,0,0,1,-1195.4,-216.71)" id="path4147" /><ellipse style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.428;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" id="path4173" cx="-1182.9" cy="-204.47" rx="5.3848" ry="5.0002" /></g></svg>'.replace(/%COLOUR%/,colour||"#000000"),
 			iconSize:	 [25, 41], // size of the icon
 			shadowSize:	 [41, 41], // size of the shadow
 			iconAnchor:	 [12.5, 41], // point of the icon which will correspond to marker's location
