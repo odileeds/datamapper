@@ -8,7 +8,7 @@
 		this.src = ['https://www.imactivate.com/urbancommons/getLayers.php'];
 		this.topicfile = "";
 		this.name = "Data Mapper";
-		this.version = "v0.8";
+		this.version = "v0.8.1";
 		this.title = (attr.title || this.name);
 
 		console.log('%c'+this.name+' '+this.version+'%c','font-weight:bold;font-size:1.25em;','');
@@ -37,7 +37,7 @@
 		this.events = {};
 		this.logging = (location.search.indexOf("logging=true") >= 0 ? true : false);
 		this.layers = {};
-		this.log = new Logger({'id':this.title,'logging':this.logging});
+		this.log = new Logger({'id':this.title,'logging':this.logging,'el':document.getElementById('message')});
 
 		// Do we update the address bar?
 		this.pushstate = !!(window.history && history.pushState);
@@ -590,7 +590,7 @@
 				var i,v,c,marker;
 				if(layers[id].data){
 					for(i = 0; i < layers[id].data.features.length; i++){
-						if(layers[id].data.features[i].geometry.type=="Point") points++;
+						if(layers[id].data.features[i].geometry && layers[id].data.features[i].geometry.type=="Point") points++;
 					}
 					if(points > 50 && points==layers[id].data.features.length) needscluster = true;
 					if(needscluster){
@@ -671,24 +671,39 @@
 					if(layers[id].format.key) key = layers[id].format.key;
 
 					layers[id]._attr.key = key;
+					var removed = [];
 
-					for(i = 0; i < layers[id].data.features.length; i++){
-						if(typeof key==="string"){
-							if(layers[id].data.features[i].properties[key] == parseFloat(layers[id].data.features[i].properties[key])) layers[id].data.features[i].properties[key] = parseFloat(layers[id].data.features[i].properties[key]);
-							v = layers[id].data.features[i].properties[key];
-						}else if(typeof key.key==="string"){
-							if(layers[id].data.features[i].properties[key.key] == parseFloat(layers[id].data.features[i].properties[key.key])) layers[id].data.features[i].properties[key.key] = parseFloat(layers[id].data.features[i].properties[key.key]);
-							v = layers[id].data.features[i].properties[key.key];
-						}
+					for(i = layers[id].data.features.length-1; i >= 0; i--){
+						if(layers[id].data.features[i].geometry){
+							if(typeof key==="string"){
+								if(layers[id].data.features[i].properties[key] == parseFloat(layers[id].data.features[i].properties[key])) layers[id].data.features[i].properties[key] = parseFloat(layers[id].data.features[i].properties[key]);
+								v = layers[id].data.features[i].properties[key];
+							}else if(typeof key.key==="string"){
+								if(layers[id].data.features[i].properties[key.key] == parseFloat(layers[id].data.features[i].properties[key.key])) layers[id].data.features[i].properties[key.key] = parseFloat(layers[id].data.features[i].properties[key.key]);
+								v = layers[id].data.features[i].properties[key.key];
+							}
 
-						if(typeof layers[id]._attr.key.convert==="object"){
-							if(typeof layers[id]._attr.key.convert[v]==="number") v = layers[id]._attr.key.convert[v];
-						}
-						if(typeof v==="number"){
-							min = Math.min(v,min);
-							max = Math.max(v,max);
+							if(typeof layers[id]._attr.key.convert==="object"){
+								if(typeof layers[id]._attr.key.convert[v]==="number") v = layers[id]._attr.key.convert[v];
+							}
+							if(typeof v==="number"){
+								min = Math.min(v,min);
+								max = Math.max(v,max);
+							}
+						}else{
+							// Remove feature because it is missing geometry
+							removed.push({'id':id,'i':i,'feature':layers[id].data.features.splice(i,1),'layer':layers[id]});
 						}
 					}
+
+					if(removed.length > 0){
+						var err = "";
+						for(i = 0; i < removed.length; i++){
+							err = 'Removed feature '+removed[i].i+' from layer '+removed[i].layer.name+'\n'+err;
+						}
+						this.log.error(err,removed)
+					}
+
 					var inverse = (layers[id].format.inverse ? true : false);
 					geoattrs.style = function(feature){
 						if(feature.geometry.type == "Polygon" || feature.geometry.type == "MultiPolygon"){
@@ -1511,6 +1526,7 @@
 		this.logging = (inp.logging||false);
 		this.logtime = (inp.logtime||false);
 		this.id = (inp.id||"JS");
+		this.el = inp.el;
 		this.metrics = {};
 		return this;
 	}
@@ -1520,7 +1536,7 @@
 	Logger.prototype.message = function(){ this.log('MESSAGE',arguments); };
 	Logger.prototype.log = function(){
 		if(this.logging || arguments[0]=="ERROR" || arguments[0]=="WARNING" || arguments[0]=="INFO"){
-			var args,args2,bold;
+			var args,args2,bold,_obj;
 			args = Array.prototype.slice.call(arguments[1], 0);
 			args2 = (args.length > 1 ? args.splice(1):"");
 			// Remove array if only 1 element
@@ -1531,6 +1547,16 @@
 				else if(arguments[0] == "WARNING") console.warn('%c'+this.id+'%c: '+args[0],bold,'',args2);
 				else if(arguments[0] == "INFO") console.info('%c'+this.id+'%c: '+args[0],bold,'',args2);
 				else console.log('%c'+this.id+'%c: '+args[0],bold,'',args2);
+				// Show a message if it is an error and we have a DOM element
+				if(this.el && arguments[0] == "ERROR"){
+					_obj = this;
+					this.el.innerHTML = args[0].replace(/\n/g,"<br />");
+					this.el.classList.add("error","hasmessage");
+					// Remove message after 5 seconds
+					setTimeout(function(){
+						if(_obj.el) _obj.el.classList.remove("hasmessage","error");
+					},5000);
+				}
 			}
 		}
 		return this;

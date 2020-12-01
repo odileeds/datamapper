@@ -244,7 +244,8 @@ body.hasmessage .panel:last-child {
     line-height: 40px;
 }
 .datamapper .message { background-color: rgb(252,229,173); padding: 1em; position: fixed; z-index: 1000; bottom: 0px; left: 0px; width: 100%; line-height: 1em; text-align: center; display: none; }
-.datamapper.hasmessage .message { display: block; }
+.datamapper .message.error { background-color: #FFCCCC; color: black; }
+.datamapper .message.hasmessage { display: block; }
 
 .datamapper .layer-search h2, .datamapper .newLayer h2 { font-size: 1.5em; line-height: 1.5em; }
 .datamapper .layer-search input { border: 1px solid #dfdfdf; }
