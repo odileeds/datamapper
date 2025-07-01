@@ -8,7 +8,7 @@
 		this.src = ['https://www.imactivate.com/urbancommons/getLayers.php'];
 		this.topicfile = "";
 		this.name = "Data Mapper";
-		this.version = "v0.8.1";
+		this.version = "v0.8.2";
 		this.title = (attr.title || this.name);
 
 		console.log('%c'+this.name+' '+this.version+'%c','font-weight:bold;font-size:1.25em;','');
@@ -181,6 +181,12 @@
 						},
 						'error':function(e,attr){
 							this.log.error("Couldn't load "+attr.url,e);
+							
+							// Increment source file loading counter
+							this.srcloaded++;
+
+							// Load any layers that now can be loaded
+							this.finishLoadingLayers();
 						}
 					});
 				}
